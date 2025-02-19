@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
 class ClassroomController extends Controller
 {
     /**
-     * Get all class
+     * Get all classes
      */
     public function index()
     {
@@ -94,6 +94,11 @@ class ClassroomController extends Controller
             return response()->json(['message' => 'Class not found'], 404);
         }
 
+        // Check if student is already enrolled
+        if ($classroom->students()->where('students.studentID', $student->studentID)->exists()) {
+            return response()->json(['message' => 'Student is already enrolled in this class'], 409);
+        }
+
         // Attach student to class
         $classroom->students()->attach($student->studentID);
 
@@ -115,6 +120,11 @@ class ClassroomController extends Controller
 
         if (!$classroom) {
             return response()->json(['message' => 'Class not found'], 404);
+        }
+
+        // Check if student is actually enrolled before detaching
+        if (!$classroom->students()->where('students.studentID', $student->studentID)->exists()) {
+            return response()->json(['message' => 'Student is not enrolled in this class'], 409);
         }
 
         // Detach student from class
