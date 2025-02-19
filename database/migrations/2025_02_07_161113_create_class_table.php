@@ -27,7 +27,7 @@ return new class extends Migration
             $table->unsignedBigInteger('classID');
             $table->unsignedBigInteger('studentID');
 
-            $table->foreign('classID')->references('classID')->on('classes')->onDelete('cascade');
+            $table->foreign('classID')->references('classID')->on('class')->onDelete('cascade');
             $table->foreign('studentID')->references('studentID')->on('students')->onDelete('cascade');
 
             $table->unique(['classID', 'studentID']); // Prevent duplicate entries
@@ -40,6 +40,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('class_student');
-        Schema::dropIfExists('classes');
+        Schema::dropIfExists('class');
     }
 };

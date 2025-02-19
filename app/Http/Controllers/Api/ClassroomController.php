@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
 class ClassroomController extends Controller
 {
     /**
-     * Get all classes
+     * Get all class
      */
     public function index()
     {

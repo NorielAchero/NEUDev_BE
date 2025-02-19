@@ -41,13 +41,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // 📌 Classroom Management Routes (For Teachers Only)
     Route::controller(ClassroomController::class)->group(function () {
-        Route::get('/classes', 'index'); // Get all classes
-        Route::post('/classes', 'store'); // Create a class (Only for teachers)
-        Route::get('/classes/{id}', 'show'); // Get class details
-        Route::delete('/classes/{id}', 'destroy'); // Delete a class (Only for teachers)
+        Route::get('/class', 'index'); // Get all class
+        Route::post('/class', 'store'); // Create a class (Only for teachers)
+        Route::get('/class/{id}', 'show'); // Get class details
+        Route::delete('/class/{id}', 'destroy'); // Delete a class (Only for teachers)
     });
 
-    // 📌 Student Enrollment Routes (Students Joining Classes)
-    Route::post('/classes/{classID}/enroll', [ClassroomController::class, 'enrollStudent']);
-    Route::delete('/classes/{classID}/unenroll', [ClassroomController::class, 'unenrollStudent']);
+    // 📌 Student Enrollment Routes (Students Joining Class)
+    Route::post('/class/{classID}/enroll', [ClassroomController::class, 'enrollStudent']);
+    Route::delete('/class/{classID}/unenroll', [ClassroomController::class, 'unenrollStudent']);
 });
