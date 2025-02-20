@@ -11,20 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('activity', function (Blueprint $table) {
+        Schema::create('activities', function (Blueprint $table) {
             $table->id('actID');
-            $table->string('classID');
-            $table->string('teacherID');
-            $table->string('questionID');
-            $table->string('assessmentID');
+            $table->unsignedBigInteger('classID'); // Foreign key to classes
+            $table->unsignedBigInteger('teacherID'); // Foreign key to teachers
+            $table->unsignedBigInteger('progLangID'); // Foreign key reference
             $table->string('actTitle');
-            $table->string('actDesc');
-            $table->string('difficulty');
-            $table->string('startDate');
-            $table->string('endDate');
-            $table->string('progLang');
+            $table->text('actDesc'); // Use text for long descriptions
+            $table->enum('difficulty', ['Easy', 'Medium', 'Hard']);
+            $table->dateTime('startDate');
+            $table->dateTime('endDate');
 
-            // $table->timestamps();
+            // ✅ Correct Foreign Key Constraints
+            $table->foreign('classID')->references('classID')->on('classes')->onDelete('cascade');
+            $table->foreign('teacherID')->references('teacherID')->on('teachers')->onDelete('cascade');
+            $table->foreign('progLangID')->references('progLangID')->on('programming_languages')->onDelete('cascade');
+
+            $table->timestamps(); // ✅ Keeps track of created_at & updated_at
         });
     }
 
@@ -33,6 +36,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('activity');
+        Schema::dropIfExists('activities');
     }
 };

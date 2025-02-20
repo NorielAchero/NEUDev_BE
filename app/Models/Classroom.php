@@ -9,7 +9,8 @@ class Classroom extends Model
 {
     use HasFactory;
 
-    protected $table = 'class'; 
+    // ✅ Change the table name to "classes" to match Laravel conventions
+    protected $table = 'classes'; 
     protected $primaryKey = 'classID'; 
     public $timestamps = true; 
 
@@ -32,5 +33,13 @@ class Classroom extends Model
     public function students()
     {
         return $this->belongsToMany(Student::class, 'class_student', 'classID', 'studentID');
+    }
+
+    /**
+     * Get the activities for this class.
+     */
+    public function activities()
+    {
+        return $this->hasMany(Activity::class, 'classID', 'classID');
     }
 }

@@ -11,7 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('class', function (Blueprint $table) {
+        // ✅ Rename "class" to "classes"
+        Schema::create('classes', function (Blueprint $table) {
             $table->id('classID');
             $table->string('className');
             $table->unsignedBigInteger('teacherID');
@@ -21,13 +22,14 @@ return new class extends Migration
             $table->foreign('teacherID')->references('teacherID')->on('teachers')->onDelete('cascade');
         });
 
-        // Create pivot table for many-to-many relationship
+        // ✅ Rename "class_student" foreign key references
         Schema::create('class_student', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('classID');
             $table->unsignedBigInteger('studentID');
 
-            $table->foreign('classID')->references('classID')->on('class')->onDelete('cascade');
+            // ✅ Change reference from "class" to "classes"
+            $table->foreign('classID')->references('classID')->on('classes')->onDelete('cascade');
             $table->foreign('studentID')->references('studentID')->on('students')->onDelete('cascade');
 
             $table->unique(['classID', 'studentID']); // Prevent duplicate entries
@@ -40,6 +42,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('class_student');
-        Schema::dropIfExists('class');
+        Schema::dropIfExists('classes'); // ✅ Drop "classes" instead of "class"
     }
 };

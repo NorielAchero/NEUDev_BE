@@ -26,10 +26,14 @@ class AuthController extends Controller
                 Rule::unique('students', 'email'),
                 Rule::unique('teachers', 'email'),
             ],
-            'student_num' => ['required', 'regex:/^\d{2}-\d{5}-\d{3}$/'],
+            'student_num' => [
+                'required', 
+                'regex:/^\d{2}-\d{5}-\d{3}$/',
+                Rule::unique('students', 'student_num') // ✅ Ensure student_num is unique
+            ],
             'program' => ['required', Rule::in(['BSCS', 'BSIT', 'BSEMC', 'BSIS'])],
             'password' => 'required|string|min:8'
-        ]);
+        ]);        
 
         if ($validator->fails()) {
             return response()->json([
