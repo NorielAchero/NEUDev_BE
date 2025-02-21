@@ -7,6 +7,18 @@ use App\Http\Controllers\Api\ClassroomController;
 use App\Http\Controllers\Api\ActivityController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Log;
+
+// 📌 Fallback route
+Route::fallback(function () {
+    Log::warning('⚠️ Invalid API Request:', ['url' => request()->url()]);
+
+    return response()->json([
+        'message' => 'Route not found. Please check your API endpoint.',
+        'requested_url' => request()->url(),
+        'status' => 404
+    ], 404);
+});
 
 // 📌 Authentication Routes
 Route::controller(AuthController::class)->group(function () {
