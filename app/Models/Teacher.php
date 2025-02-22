@@ -38,7 +38,7 @@ class Teacher extends Authenticatable
 	    /**
      * Get the class created by the teacher.
      */
-    public function class()
+    public function classes()
     {
         return $this->hasMany(Classroom::class, 'teacherID', 'teacherID');
     }

@@ -15,7 +15,11 @@ return new class extends Migration
             $table->id('submissionID');
             $table->unsignedBigInteger('actID');
             $table->unsignedBigInteger('studentID');
-            $table->text('submissionFile')->nullable(); // File or text submission
+            $table->unsignedBigInteger('questionID'); // ✅ Ensure this column exists
+            $table->text('codeSubmission'); // Stores the student's code
+            $table->integer('score')->nullable(); // Auto-evaluation score
+            $table->integer('rank')->nullable(); // Rank based on score
+            $table->integer('timeSpent')->nullable(); // ✅ NEW: Time spent on submission
             $table->dateTime('submitted_at')->nullable();
 
             // Foreign key constraints

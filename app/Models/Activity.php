@@ -22,6 +22,15 @@ class Activity extends Model
         'difficulty',
         'startDate',
         'endDate',
+        'maxPoints',
+        'classAvgScore',
+        'highestScore',
+        'examMode',
+        'randomizedItems',
+        'disableReviewing',
+        'hideLeaderboard',
+        'delayGrading',
+        'completed_at'
     ];
 
     /**
@@ -41,18 +50,18 @@ class Activity extends Model
     }
 
     /**
-     * Get all student submissions for this activity.
-     */
-    public function submissions()
-    {
-        return $this->hasMany(ActivitySubmission::class, 'actID', 'actID');
-    }
-
-    /**
      * Get the programming language associated with this activity.
      */
     public function programmingLanguage()
     {
         return $this->belongsTo(ProgrammingLanguage::class, 'progLangID', 'progLangID');
+    }
+
+    /**
+     * Get all preset questions linked to this activity.
+     */
+    public function questions()
+    {
+        return $this->hasMany(ActivityQuestion::class, 'actID', 'actID')->with(['question', 'itemType']);
     }
 }

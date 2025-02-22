@@ -5,13 +5,20 @@ use App\Http\Controllers\Api\ProfileStudentController;
 use App\Http\Controllers\Api\ProfileTeacherController;
 use App\Http\Controllers\Api\ClassroomController;
 use App\Http\Controllers\Api\ActivityController;
+use App\Http\Controllers\Api\QuestionController;
+use App\Http\Controllers\Api\ItemTypeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Log;
 
-// 📌 Fallback route
+// 📌 Fallback route for undefined API calls
 Route::fallback(function () {
-    Log::warning('⚠️ Invalid API Request:', ['url' => request()->url()]);
+    Log::warning('⚠️ Invalid API Request:', [
+        'url' => request()->url(),
+        'method' => request()->method(),
+        'headers' => request()->header(),
+        'body' => request()->all()
+    ]);
 
     return response()->json([
         'message' => 'Route not found. Please check your API endpoint.',
@@ -20,65 +27,87 @@ Route::fallback(function () {
     ], 404);
 });
 
-// 📌 Authentication Routes
+// 📌 Authentication Routes (Public)
 Route::controller(AuthController::class)->group(function () {
     Route::post('/register/student', 'registerStudent'); // Register Student
     Route::post('/register/teacher', 'registerTeacher'); // Register Teacher
-    Route::post('/login', 'login');                      // Login for both roles
+    Route::post('/login', 'login');                      // Login (both roles)
 });
 
 // 📌 Protected Routes (Requires Authentication via Sanctum)
 Route::middleware('auth:sanctum')->group(function () {
 
     // 🔹 Logout
-    Route::post('/logout', [AuthController::class, 'logout']); 
+    Route::post('/logout', [AuthController::class, 'logout']);
 
-    // 🔹 Get Authenticated User (Student or Teacher)
+    // 🔹 Get Authenticated User Info
     Route::get('/user', function (Request $request) {
         $user = $request->user();
         return response()->json([
             'user' => $user,
-            'user_type' => $user instanceof \App\Models\Student ? 'student' : 'teacher',
+            'user_type' => $user instanceof \App\Models\Student ? 'student' :
+                          ($user instanceof \App\Models\Teacher ? 'teacher' : 'unknown'),
         ]);
     });
 
-    // 📌 Profile Student Routes (All Singular)
-    Route::get('/profile/student/{student}', [ProfileStudentController::class, 'show']);
-    Route::put('/profile/student/{student}', [ProfileStudentController::class, 'update']); 
-    Route::delete('/profile/student/{student}', [ProfileStudentController::class, 'destroy']);
+    // 📌 Student Routes
+    Route::prefix('student')->group(function () {
+        Route::controller(ProfileStudentController::class)->group(function () {
+            Route::get('/profile/{student}', 'show');     // View student profile
+            Route::put('/profile/{student}', 'update');   // Update student profile
+            Route::delete('/profile/{student}', 'destroy'); // Delete student profile
+        });
 
-    // 📌 Profile Teacher Routes (All Singular)
-    Route::get('/profile/teacher/{teacher}', [ProfileTeacherController::class, 'show']);
-    Route::put('/profile/teacher/{teacher}', [ProfileTeacherController::class, 'update']); 
-    Route::delete('/profile/teacher/{teacher}', [ProfileTeacherController::class, 'destroy']);
+        // 📌 Student Enrollment Routes
+        Route::prefix('class')->group(function () {
+            Route::post('{classID}/enroll', [ClassroomController::class, 'enrollStudent']); // Enroll student
+            Route::delete('{classID}/unenroll', [ClassroomController::class, 'unenrollStudent']); // Unenroll student
+        });
 
-    // 📌 Classroom Management Routes (For Teachers Only)
-    Route::controller(ClassroomController::class)->group(function () {
-        Route::get('/class', 'index'); // Get all classes
-        Route::post('/class', 'store'); // Create a class (Only for teachers)
-        Route::get('/class/{id}', 'show'); // Get class details
-        Route::delete('/class/{id}', 'destroy'); // Delete a class (Only for teachers)
+        Route::controller(ActivityController::class)->group(function () {
+            Route::get('/activities', 'showStudentActivities'); // Get all student activities
+        });
+        Route::get('/activities/{actID}/items', [ActivityController::class, 'showActivityItemsByStudent']);
+        Route::get('/activities/{actID}/leaderboard', [ActivityController::class, 'showActivityLeaderboardByStudent']);
+
     });
 
-    // 📌 Student Enrollment Routes (Students Joining Class)
-    Route::post('/class/{classID}/enroll', [ClassroomController::class, 'enrollStudent']);
-    Route::delete('/class/{classID}/unenroll', [ClassroomController::class, 'unenrollStudent']);
+    // 📌 Teacher Routes
+    Route::prefix('teacher')->group(function () {
+        Route::controller(ProfileTeacherController::class)->group(function () {
+            Route::get('/profile/{teacher}', 'show');     // View teacher profile
+            Route::put('/profile/{teacher}', 'update');   // Update teacher profile
+            Route::delete('/profile/{teacher}', 'destroy'); // Delete teacher profile
+        });
 
-    // 📌 Activity Management Routes
-    Route::controller(ActivityController::class)->group(function () {
-        Route::get('/activities', 'studentActivities'); // Get all activities for the student
-        Route::post('/activities', 'store'); // Create an activity (Only for teachers)
-        Route::get('/class/{classID}/activities', 'showClassActivities'); // Get activities for a class
-        Route::get('/activities/{actID}', 'show'); // Get a specific activity
-        Route::delete('/activities/{actID}', 'destroy'); // Delete an activity (Only for teachers)
+        Route::controller(ClassroomController::class)->group(function () {
+            Route::get('/classes', 'index'); // Get all classes
+            Route::post('/class', 'store'); // Create a class
+            Route::get('/class/{id}', 'show'); // Get class details
+            Route::delete('/class/{id}', 'destroy'); // Delete a class
+        });
 
-        // Activity Submissions (For Students)
-        Route::post('/activities/{actID}/submit', 'submitActivity'); // Submit an activity answer
+        // CLASS MANAGEMENT PAGE VIA ACTIVITY
+        Route::controller(ActivityController::class)->group(function () {
+            Route::post('/activities', 'store'); // Create an activity
+            Route::get('/class/{classID}/activities', 'showClassActivities'); // Get activities for a class
+            Route::get('/activities/{actID}', 'show'); // Get a specific activity
+            Route::put('/activities/{actID}', 'update'); // Edit an activity
+            Route::delete('/activities/{actID}', 'destroy'); // Delete an activity
+        });
 
-        // Activity Submissions (For Teachers)
-        Route::get('/activities/{actID}/submissions', 'activitySubmissions'); // Get all submissions for an activity
-        // Route to get a specific student's submission for an activity (For Teachers)
-        Route::get('/activities/{actID}/submissions/{studentID}', [ActivityController::class, 'getStudentSubmission']);
+        Route::controller(QuestionController::class)->group(function () {
+            Route::get('/questions/itemType/{itemTypeID}', 'getByItemType'); // Get preset questions by item type
+        });
+
+        Route::get('/itemTypes', [ItemTypeController::class, 'index']);
+
+
+        // ACTIVITY MANAGEMENT PAGE
+        Route::get('/activities/{actID}/items', [ActivityController::class, 'showActivityItemsByTeacher']);
+        Route::get('/activities/{actID}/leaderboard', [ActivityController::class, 'showActivityLeaderboardByTeacher']);
+        Route::get('/activities/{actID}/settings', [ActivityController::class, 'showActivitySettingsByTeacher']); // Fetch settings
+        Route::put('/activities/{actID}/settings', [ActivityController::class, 'updateActivitySettingsByTeacher']); // Update settings
 
     });
 });
