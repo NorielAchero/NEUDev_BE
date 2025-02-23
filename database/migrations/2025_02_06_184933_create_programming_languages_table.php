@@ -14,15 +14,15 @@ return new class extends Migration
     {
         Schema::create('programming_languages', function (Blueprint $table) {
             $table->id('progLangID'); // Primary key
-            $table->string('name')->unique(); // Unique programming language names
+            $table->string('progLangName')->unique(); // Unique programming language names
             // $table->timestamps();
         });
 
         // Insert default programming languages
         DB::table('programming_languages')->insert([
-            ['name' => 'Java'],
-            ['name' => 'C#'],
-            ['name' => 'Python'],
+            ['progLangName' => 'Java'],
+            ['progLangName' => 'C#'],
+            ['progLangName' => 'Python'],
         ]);
     }
 

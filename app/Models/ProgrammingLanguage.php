@@ -14,7 +14,7 @@ class ProgrammingLanguage extends Model
     public $timestamps = false; // no need timestamps
 
     protected $fillable = [
-        'name',
+        'progLangName',
     ];
 
     /**

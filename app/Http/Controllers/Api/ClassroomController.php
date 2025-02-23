@@ -23,23 +23,25 @@ class ClassroomController extends Controller
      */
     public function store(Request $request)
     {
+        \Log::info('Received Request Data:', $request->all());
+    
         $request->validate([
             'className' => 'required|string|max:255',
         ]);
-
-        $teacher = Auth::user(); // Get authenticated user
-
+    
+        $teacher = Auth::user();
+    
         if (!$teacher || !$teacher instanceof \App\Models\Teacher) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-
+    
         $classroom = Classroom::create([
             'className' => $request->className,
             'teacherID' => $teacher->teacherID,
         ]);
-
+    
         return response()->json($classroom, 201);
-    }
+    }    
 
     /**
      * Get a specific class

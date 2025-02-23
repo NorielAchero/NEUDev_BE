@@ -16,7 +16,7 @@ class ActivitySubmission extends Model
     protected $fillable = [
         'actID',
         'studentID',
-        'submissionFile',
+        'codeSubmission',
         'submitted_at',
     ];
 
