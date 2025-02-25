@@ -16,7 +16,6 @@ class Activity extends Model
     protected $fillable = [
         'classID',
         'teacherID',
-        'progLangID',
         'actTitle',
         'actDesc',
         'difficulty',
@@ -50,11 +49,16 @@ class Activity extends Model
     }
 
     /**
-     * Get the programming language associated with this activity.
+     * Get the programming languages used in this activity.
      */
-    public function programmingLanguage()
+    public function programmingLanguages()
     {
-        return $this->belongsTo(ProgrammingLanguage::class, 'progLangID', 'progLangID');
+        return $this->belongsToMany(
+            ProgrammingLanguage::class, 
+            'activity_programming_languages', 
+            'actID', 
+            'progLangID'
+        );
     }
 
     /**
@@ -62,6 +66,9 @@ class Activity extends Model
      */
     public function questions()
     {
-        return $this->hasMany(ActivityQuestion::class, 'actID', 'actID')->with(['question', 'itemType']);
+        return $this->hasMany(ActivityQuestion::class, 'actID', 'actID')
+                    ->with(['question' => function ($query) {
+                        $query->with('testCases', 'itemType'); // ✅ Eager load test cases & item type
+                    }]);
     }
 }
