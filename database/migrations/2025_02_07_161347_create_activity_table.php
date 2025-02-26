@@ -15,7 +15,6 @@ return new class extends Migration {
             $table->id('actID');
             $table->unsignedBigInteger('classID'); // Foreign key to classes
             $table->unsignedBigInteger('teacherID'); // Foreign key to teachers
-            $table->unsignedBigInteger('progLangID'); // Foreign key to programming languages
             $table->string('actTitle');
             $table->text('actDesc'); // Long description
             $table->enum('difficulty', ['Beginner', 'Intermediate', 'Advanced']);
@@ -34,7 +33,6 @@ return new class extends Migration {
             // ✅ Foreign Key Constraints
             $table->foreign('classID')->references('classID')->on('classes')->onDelete('cascade');
             $table->foreign('teacherID')->references('teacherID')->on('teachers')->onDelete('cascade');
-            $table->foreign('progLangID')->references('progLangID')->on('programming_languages')->onDelete('cascade');
 
             $table->timestamps(); // ✅ Keeps track of created_at & updated_at
         });
@@ -51,6 +49,17 @@ return new class extends Migration {
             $table->foreign('questionID')->references('questionID')->on('questions')->onDelete('cascade');
             $table->foreign('itemTypeID')->references('itemTypeID')->on('item_types')->onDelete('cascade');
         });
+
+        // ✅ Create the Activity Programming Languages Table (Pivot Table)
+        Schema::create('activity_programming_languages', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('actID');
+            $table->unsignedBigInteger('progLangID');
+
+            // ✅ Foreign Key Constraints
+            $table->foreign('actID')->references('actID')->on('activities')->onDelete('cascade');
+            $table->foreign('progLangID')->references('progLangID')->on('programming_languages')->onDelete('cascade');
+        });
     }
 
     /**
@@ -59,6 +68,7 @@ return new class extends Migration {
     public function down(): void
     {
         // ✅ Drop the tables in the correct order to avoid foreign key conflicts
+        Schema::dropIfExists('activity_programming_languages'); // Remove pivot table first
         Schema::dropIfExists('activity_questions');
         Schema::dropIfExists('activities');
     }

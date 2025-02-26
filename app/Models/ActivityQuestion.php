@@ -32,8 +32,10 @@ class ActivityQuestion extends Model
      */
     public function question()
     {
-        return $this->belongsTo(Question::class, 'questionID', 'questionID');
+        return $this->belongsTo(Question::class, 'questionID', 'questionID')
+                    ->with('testCases'); // ✅ Eager load test cases for this question
     }
+    
 
     /**
      * Get the item type for this question.

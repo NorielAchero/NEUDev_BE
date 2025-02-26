@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\ClassroomController;
 use App\Http\Controllers\Api\ActivityController;
 use App\Http\Controllers\Api\QuestionController;
 use App\Http\Controllers\Api\ItemTypeController;
+use App\Http\Controllers\Api\ProgrammingLanguageController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Log;
@@ -98,10 +99,23 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::controller(QuestionController::class)->group(function () {
             Route::get('/questions/itemType/{itemTypeID}', 'getByItemType'); // Get preset questions by item type
+            Route::post('/questions', 'store'); // ✅ Create a question (with test cases)
+            Route::get('/questions/{questionID}', 'show'); // ✅ Get a single question (with test cases)
+            Route::put('/questions/{questionID}', 'update'); // ✅ Update a question (and test cases)
+            Route::delete('/questions/{questionID}', 'destroy'); // ✅ Delete a question (removes test cases)
         });
-
+        
+        // ITEM TYPES
         Route::get('/itemTypes', [ItemTypeController::class, 'index']);
 
+        // PROGRAMMING LANGUAGES
+        Route::controller(ProgrammingLanguageController::class)->group(function () {
+            Route::get('/programmingLanguages', 'get'); // ✅ Get all programming languages
+            Route::post('/programmingLanguages', 'store'); // ✅ Add a new programming language
+            Route::get('/programmingLanguages/{id}', 'show'); // ✅ Get a single language by ID
+            Route::put('/programmingLanguages/{id}', 'update'); // ✅ Update a programming language
+            Route::delete('/programmingLanguages/{id}', 'destroy'); // ✅ Delete a programming language
+        });
 
         // ACTIVITY MANAGEMENT PAGE
         Route::get('/activities/{actID}/items', [ActivityController::class, 'showActivityItemsByTeacher']);

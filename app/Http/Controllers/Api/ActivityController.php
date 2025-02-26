@@ -36,14 +36,14 @@ class ActivityController extends Controller
         $now = now();
     
         // Fetch ongoing and completed activities
-        $ongoingActivities = Activity::with(['teacher', 'programmingLanguage'])
+        $ongoingActivities = Activity::with(['teacher', 'programmingLanguages'])
             ->whereIn('classID', $enrolledClassIDs)
             ->where('startDate', '<=', $now)
             ->where('endDate', '>=', $now)
             ->orderBy('startDate', 'asc')
             ->get();
     
-        $completedActivities = Activity::with(['teacher', 'programmingLanguage'])
+        $completedActivities = Activity::with(['teacher', 'programmingLanguages'])
             ->whereIn('classID', $enrolledClassIDs)
             ->where('endDate', '<', $now)
             ->orderBy('endDate', 'desc')
@@ -93,7 +93,10 @@ class ActivityController extends Controller
                 'actID' => $activity->actID,
                 'actTitle' => $activity->actTitle,
                 'teacherName' => optional($activity->teacher)->firstname . ' ' . optional($activity->teacher)->lastname,
-                'programmingLanguage' => optional($activity->programmingLanguage)->progLangName,
+                // Extract programming language names as an array (or 'N/A' if none)
+                'programmingLanguages' => $activity->programmingLanguages->isNotEmpty() 
+                    ? $activity->programmingLanguages->pluck('progLangName')->toArray() 
+                    : 'N/A',
                 'startDate' => $activity->startDate,
                 'endDate' => $activity->endDate,
                 'rank' => $rank,
@@ -110,58 +113,37 @@ class ActivityController extends Controller
     {
         try {
             $teacher = Auth::user();
-    
+
             if (!$teacher || !$teacher instanceof \App\Models\Teacher) {
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
-    
-            // Validate all other fields except classID
+
+            // ✅ Validate input
             $validator = \Validator::make($request->all(), [
-                'progLangID' => 'required|exists:programming_languages,progLangID',
+                'progLangIDs' => 'required|array', // ✅ Supports multiple languages
+                'progLangIDs.*' => 'exists:programming_languages,progLangID',
                 'actTitle' => 'required|string|max:255',
                 'actDesc' => 'required|string',
                 'difficulty' => 'required|in:Beginner,Intermediate,Advanced',
-                // 'startDate' => 'sometimes|required|date|after_or_equal:now',
                 'startDate' => 'required|date',
                 'endDate' => 'required|date|after:startDate',
                 'maxPoints' => 'required|integer|min:1',
-                'questions' => 'required|array|min:1|max:3', // ✅ Must contain 1-3 preset questions
-                'questions.*.questionID' => [
-                    'required',
-                    'exists:questions,questionID',
-                    function ($attribute, $value, $fail) use ($request) {
-                        $questionIDs = array_column($request->questions, 'questionID');
-                        if (count($questionIDs) !== count(array_unique($questionIDs))) {
-                            $fail('Duplicate questions are not allowed.');
-                        }
-                    }
-                ],
+                'questions' => 'required|array|min:1|max:3',
+                'questions.*.questionID' => 'required|exists:questions,questionID',
                 'questions.*.itemTypeID' => 'required|exists:item_types,itemTypeID',
             ]);
-    
+
             if ($validator->fails()) {
                 return response()->json([
-                    'message' => 'Validation failed. Please check your input.',
+                    'message' => 'Validation failed.',
                     'errors' => $validator->errors(),
                 ], 422);
             }
-    
-            // ✅ Custom Check: Class Exists & Teacher Owns It
-            $class = \App\Models\Classroom::where('classID', $request->classID)->first();
-    
-            if (!$class) {
-                return response()->json(['message' => 'The class does not exist.'], 404);
-            }
-    
-            if ($class->teacherID !== $teacher->teacherID) {
-                return response()->json(['message' => 'You are not authorized to create an activity in this class.'], 403);
-            }
-    
+
             // ✅ Create the activity
             $activity = Activity::create([
                 'classID' => $request->classID,
                 'teacherID' => $teacher->teacherID,
-                'progLangID' => $request->progLangID,
                 'actTitle' => $request->actTitle,
                 'actDesc' => $request->actDesc,
                 'difficulty' => $request->difficulty,
@@ -171,8 +153,11 @@ class ActivityController extends Controller
                 'classAvgScore' => null,
                 'highestScore' => null,
             ]);
-    
-            // ✅ Attach the selected questions
+
+            // ✅ Attach programming languages (Many-to-Many)
+            $activity->programmingLanguages()->attach($request->progLangIDs);
+
+            // ✅ Attach selected questions
             foreach ($request->questions as $question) {
                 ActivityQuestion::create([
                     'actID' => $activity->actID,
@@ -180,14 +165,14 @@ class ActivityController extends Controller
                     'itemTypeID' => $question['itemTypeID'],
                 ]);
             }
-    
+
             return response()->json([
                 'message' => 'Activity created successfully',
-                'activity' => $activity->load('questions.question', 'questions.itemType'),
+                'activity' => $activity->load('questions.question', 'questions.itemType', 'programmingLanguages'),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Something went wrong while creating the activity.',
+                'message' => 'Error while creating the activity.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -198,8 +183,12 @@ class ActivityController extends Controller
      */
     public function show($actID)
     {
-        $activity = Activity::with(['classroom', 'teacher', 'programmingLanguage'])
-            ->find($actID);
+        $activity = Activity::with([
+            'classroom',
+            'teacher',
+            'programmingLanguages', // ✅ Load multiple languages
+            'questions.question.testCases',
+        ])->find($actID);
 
         if (!$activity) {
             return response()->json(['message' => 'Activity not found'], 404);
@@ -228,7 +217,7 @@ class ActivityController extends Controller
         \Log::info("🔥 Activities marked as completed: $updatedCount");
 
         // ✅ Fetch Ongoing Activities (StartDate <= now && EndDate >= now && not completed)
-        $ongoingActivities = Activity::with(['teacher', 'programmingLanguage', 'questions.question', 'questions.itemType'])
+        $ongoingActivities = Activity::with(['teacher', 'programmingLanguages', 'questions.question', 'questions.itemType'])
             ->where('classID', $classID)
             ->where('startDate', '<=', $now)
             ->where('endDate', '>=', $now)
@@ -237,7 +226,7 @@ class ActivityController extends Controller
             ->get();
 
         // ✅ Fetch Completed Activities (Has a `completed_at` timestamp)
-        $completedActivities = Activity::with(['teacher', 'programmingLanguage', 'questions.question', 'questions.itemType'])
+        $completedActivities = Activity::with(['teacher', 'programmingLanguages', 'questions.question', 'questions.itemType'])
             ->where('classID', $classID)
             ->whereNotNull('completed_at') // ✅ Only fetch explicitly completed activities
             ->orderBy('endDate', 'desc')
@@ -277,7 +266,6 @@ class ActivityController extends Controller
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
 
-            // ✅ Find the activity and check if the teacher owns it
             $activity = Activity::where('actID', $actID)
                 ->where('teacherID', $teacher->teacherID)
                 ->first();
@@ -286,49 +274,37 @@ class ActivityController extends Controller
                 return response()->json(['message' => 'Activity not found or unauthorized'], 404);
             }
 
-            // // ✅ Prevent editing if the activity has already started
-            // if (now()->greaterThanOrEqualTo($activity->startDate)) {
-            //     return response()->json(['message' => 'Cannot edit an activity that has already started.'], 403);
-            // }
-
-            // ✅ Validate request input
+            // ✅ Validate input
             $validator = \Validator::make($request->all(), [
+                'progLangIDs' => 'sometimes|required|array', // ✅ Multiple languages
+                'progLangIDs.*' => 'exists:programming_languages,progLangID',
                 'actTitle' => 'sometimes|required|string|max:255',
                 'actDesc' => 'sometimes|required|string',
                 'difficulty' => 'sometimes|required|in:Beginner,Intermediate,Advanced',
-                'startDate' => 'required|date',
+                'startDate' => 'sometimes|required|date',
                 'endDate' => 'sometimes|required|date|after:startDate',
                 'maxPoints' => 'sometimes|required|integer|min:1',
                 'questions' => 'sometimes|required|array|min:1|max:3',
-                'questions.*.questionID' => [
-                    'required_with:questions',
-                    'exists:questions,questionID',
-                    function ($attribute, $value, $fail) use ($request) {
-                        $questionIDs = array_column($request->questions, 'questionID');
-                        if (count($questionIDs) !== count(array_unique($questionIDs))) {
-                            $fail('Duplicate questions are not allowed.');
-                        }
-                    }
-                ],
+                'questions.*.questionID' => 'required_with:questions|exists:questions,questionID',
                 'questions.*.itemTypeID' => 'required_with:questions|exists:item_types,itemTypeID',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
-                    'message' => 'Validation failed. Please check your input.',
+                    'message' => 'Validation failed.',
                     'errors' => $validator->errors(),
                 ], 422);
             }
 
-            // ✅ Update activity details (only fields present in the request)
+            // ✅ Update activity details
             $activity->update($request->only([
-                'actTitle',
-                'actDesc',
-                'difficulty',
-                'startDate',
-                'endDate',
-                'maxPoints'
+                'actTitle', 'actDesc', 'difficulty', 'startDate', 'endDate', 'maxPoints'
             ]));
+
+            // ✅ Sync programming languages
+            if ($request->has('progLangIDs')) {
+                $activity->programmingLanguages()->sync($request->progLangIDs);
+            }
 
             // ✅ If questions are provided, update them
             if ($request->has('questions')) {
@@ -345,11 +321,11 @@ class ActivityController extends Controller
 
             return response()->json([
                 'message' => 'Activity updated successfully',
-                'activity' => $activity->load('questions.question', 'questions.itemType'),
+                'activity' => $activity->load('questions.question', 'questions.itemType', 'programmingLanguages'),
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Something went wrong while updating the activity.',
+                'message' => 'Error while updating the activity.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -477,33 +453,61 @@ class ActivityController extends Controller
     public function showActivityItemsByTeacher($actID)
     {
         $activity = Activity::with([
-            'questions.question',    // Get Question Details
-            'questions.itemType',    // Get Item Type
-            'classroom',             // Get Class Information
+            'questions.question.programmingLanguages', // Eager load question languages
+            'questions.itemType',
+            'classroom',
         ])->find($actID);
-
+    
         if (!$activity) {
             return response()->json(['message' => 'Activity not found'], 404);
         }
-
+    
         // Retrieve all related questions for this activity
         $questions = $activity->questions->map(function ($aq) use ($activity) {
+            $question = $aq->question;
+    
+            // Convert each programming language to a small array of { progLangID, progLangName }
+            $programmingLanguages = $question->programmingLanguages->map(function ($lang) {
+                return [
+                    'progLangID'   => $lang->progLangID,
+                    'progLangName' => $lang->progLangName,
+                ];
+            })->values()->all();
+    
             return [
-                'questionName' => $aq->question->questionName ?? 'Unknown',
-                'difficulty' => $aq->question->difficulty ?? 'N/A',
+                'questionName' => $question->questionName ?? 'Unknown',
+                'questionDesc' => $question->questionDesc ?? '',
+                'difficulty'   => $question->difficulty ?? 'N/A',
+    
+                // Return an array of objects for the languages
+                'programming_languages' => $programmingLanguages,
+    
                 'itemType' => $aq->itemType->itemTypeName ?? 'N/A',
-                'avgStudentScore' => $this->calculateAverageScore($aq->question->questionID, $activity->actID),
-                'avgStudentTimeSpent' => $this->calculateAverageTimeSpent($aq->question->questionID, $activity->actID),
+    
+                // Test cases
+                'testCases' => $question->testCases->map(function ($tc) {
+                    return [
+                        'inputData'      => $tc->inputData,
+                        'expectedOutput' => $tc->expectedOutput,
+                    ];
+                }),
+    
+                'avgStudentScore'      => $this->calculateAverageScore($question->questionID, $activity->actID),
+                'avgStudentTimeSpent'  => $this->calculateAverageTimeSpent($question->questionID, $activity->actID),
             ];
         });
-
-
+    
         return response()->json([
             'activityName' => $activity->actTitle,
-            'maxPoints' => $activity->maxPoints,
-            'questions' => $questions
+            'maxPoints'    => $activity->maxPoints,
+    
+            // If you want the activity's own programmingLanguages as well:
+            // 'programming_languages' => $activity->programmingLanguages->map(...),
+    
+            'questions'    => $questions
         ]);
     }
+    
 
     /**
      * Calculate the average student score for an activity question.

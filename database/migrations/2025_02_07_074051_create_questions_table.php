@@ -18,33 +18,22 @@ return new class extends Migration {
             $table->string('questionName'); // Question Title
             $table->text('questionDesc'); // Question Description
             $table->enum('difficulty', ['Beginner', 'Intermediate', 'Advanced']);
-            // $table->timestamps();
+            $table->timestamps();
 
             // ✅ Foreign Key Constraint
             $table->foreign('itemTypeID')->references('itemTypeID')->on('item_types')->onDelete('cascade');
         });
 
-        // ✅ Insert Default Questions for "Console App"
-        DB::table('questions')->insert([
-            [
-                'questionName' => 'Array Problem',
-                'questionDesc' => 'Write a function that manipulates arrays efficiently.',
-                'difficulty' => 'Beginner',
-                'itemTypeID' => 1
-            ],
-            [
-                'questionName' => 'Tic-Tac-Toe',
-                'questionDesc' => 'Implement a simple Tic-Tac-Toe game using console input.',
-                'difficulty' => 'Intermediate',
-                'itemTypeID' => 1
-            ],
-            [
-                'questionName' => 'Christmas Tree Loop',
-                'questionDesc' => 'Implement a simple Christmas Tree Loop using console input.',
-                'difficulty' => 'Advanced',
-                'itemTypeID' => 1
-            ],
-        ]);
+        // ✅ Create the Question Programming Languages Pivot Table
+        Schema::create('question_programming_languages', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('questionID');
+            $table->unsignedBigInteger('progLangID');
+
+            // ✅ Foreign Key Constraints
+            $table->foreign('questionID')->references('questionID')->on('questions')->onDelete('cascade');
+            $table->foreign('progLangID')->references('progLangID')->on('programming_languages')->onDelete('cascade');
+        });
     }
 
     /**
@@ -52,6 +41,7 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('questions'); // ✅ Drop Table
+        Schema::dropIfExists('question_programming_languages'); // ✅ Drop pivot table first
+        Schema::dropIfExists('questions'); // ✅ Drop Questions Table
     }
 };

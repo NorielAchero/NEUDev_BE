@@ -20,6 +20,7 @@ return new class extends Migration {
         // ✅ Insert default item type: "Console App"
         DB::table('item_types')->insert([
             ['itemTypeName' => 'Console App'],
+            // ['itemTypeName' => 'Algorithm'],
         ]);
     }
 
