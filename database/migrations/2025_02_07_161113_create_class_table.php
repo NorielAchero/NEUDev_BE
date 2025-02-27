@@ -15,7 +15,7 @@ return new class extends Migration
         Schema::create('classes', function (Blueprint $table) {
             $table->id('classID');
             $table->string('className');
-            $table->string('classSection')->nullable();
+            $table->string('classSection');
             $table->unsignedBigInteger('teacherID');
             $table->timestamps();
 

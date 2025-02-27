@@ -181,7 +181,7 @@ class ClassroomController extends Controller
             return [
                 'classID' => $class->classID,
                 'className' => $class->className,
-                'section' => $class->classsection, 
+                'classSection' => $class->classSection, 
                 'teacherName' => $class->teacher ? "{$class->teacher->firstname} {$class->teacher->lastname}" : 'Unknown Teacher'
             ];
         });
