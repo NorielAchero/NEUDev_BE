@@ -65,6 +65,9 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('{classID}/unenroll', [ClassroomController::class, 'unenrollStudent']); // Unenroll student
         });
 
+         // ✅ Fetch only the classes where the student is enrolled
+         Route::get('/classes', [ClassroomController::class, 'getStudentClasses']); 
+
         Route::controller(ActivityController::class)->group(function () {
             Route::get('/activities', 'showStudentActivities'); // Get all student activities
         });

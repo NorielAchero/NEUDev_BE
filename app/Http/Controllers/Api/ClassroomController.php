@@ -134,4 +134,23 @@ class ClassroomController extends Controller
 
         return response()->json(['message' => 'Unenrolled successfully']);
     }
+
+
+    /**
+     * Get only the classes a student is enrolled in
+     */
+    public function getStudentClasses()
+    {
+        $student = Auth::user();
+
+        if (!$student || !$student instanceof \App\Models\Student) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // Fetch only the classes where the student is enrolled
+        $classes = $student->classes()->with('teacher')->get(); 
+
+        return response()->json($classes);
+    }
+
 }
