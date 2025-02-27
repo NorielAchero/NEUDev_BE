@@ -7,6 +7,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
+
 class Teacher extends Authenticatable
 {
 	use HasFactory, Notifiable, HasApiTokens;
@@ -38,8 +39,9 @@ class Teacher extends Authenticatable
 	    /**
      * Get the class created by the teacher.
      */
-    public function classes()
-    {
-        return $this->hasMany(Classroom::class, 'teacherID', 'teacherID');
-    }
+	public function classes()
+	{
+		return $this->hasMany(Classroom::class, 'teacherID', 'teacherID');
+	}
+	
 }

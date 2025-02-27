@@ -46,6 +46,7 @@ class ClassroomController extends Controller
     
         $classroom = Classroom::create([
             'className' => $request->className,
+            'classSection' => $request->classSection,
             'teacherID' => $teacher->teacherID,
         ]);
     
@@ -58,12 +59,28 @@ class ClassroomController extends Controller
     public function show($id)
     {
         $classroom = Classroom::with('teacher', 'students')->find($id);
-
+    
         if (!$classroom) {
             return response()->json(['message' => 'Class not found'], 404);
         }
-
-        return response()->json($classroom);
+    
+        return response()->json([
+            'classID' => $classroom->classID,
+            'className' => $classroom->className,
+            'classSection' => $classroom->classSection, 
+            'teacher' => [
+                'teacherID' => $classroom->teacher->teacherID,
+                'teacherName' => "{$classroom->teacher->firstname} {$classroom->teacher->lastname}",
+            ],
+            'students' => $classroom->students->map(function ($student) {
+                return [
+                    'studentID' => $student->studentID,
+                    'firstname' => $student->firstname,
+                    'lastname' => $student->lastname,
+                    'email' => $student->email,
+                ];
+            }),
+        ]);
     }
 
     /**
@@ -151,15 +168,25 @@ class ClassroomController extends Controller
     public function getStudentClasses()
     {
         $student = Auth::user();
-
+    
         if (!$student || !$student instanceof \App\Models\Student) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-
-        // Fetch only the classes where the student is enrolled
+    
+        // Fetch only the classes where the student is enrolled, with teacher details
         $classes = $student->classes()->with('teacher')->get(); 
-
-        return response()->json($classes);
+    
+        // Transform response to include teacher's full name
+        $formattedClasses = $classes->map(function ($class) {
+            return [
+                'classID' => $class->classID,
+                'className' => $class->className,
+                'section' => $class->classsection, 
+                'teacherName' => $class->teacher ? "{$class->teacher->firstname} {$class->teacher->lastname}" : 'Unknown Teacher'
+            ];
+        });
+    
+        return response()->json($formattedClasses);
     }
 
 }
