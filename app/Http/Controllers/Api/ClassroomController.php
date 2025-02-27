@@ -15,9 +15,18 @@ class ClassroomController extends Controller
      */
     public function index()
     {
-        return response()->json(Classroom::with('teacher', 'students')->get());
+        $teacher = Auth::user();
+    
+        if (!$teacher || !$teacher instanceof \App\Models\Teacher) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+    
+        // Fetch only classes created by this teacher
+        $classes = Classroom::where('teacherID', $teacher->teacherID)->with('students')->get();
+    
+        return response()->json($classes);
     }
-
+    
     /**
      * Create a class (Only for Teachers)
      */
