@@ -17,9 +17,10 @@ return new class extends Migration {
             $table->unsignedBigInteger('teacherID'); // Foreign key to teachers
             $table->string('actTitle');
             $table->text('actDesc'); // Long description
-            $table->enum('difficulty', ['Beginner', 'Intermediate', 'Advanced']);
-            $table->dateTime('startDate');
-            $table->dateTime('endDate');
+            $table->enum('actDifficulty', ['Beginner', 'Intermediate', 'Advanced']);
+            $table->string('actDuration', 8)->nullable();
+            $table->dateTime('openDate');
+            $table->dateTime('closeDate');
             $table->integer('maxPoints')->default(100); // Maximum points for activity
             $table->float('classAvgScore')->nullable(); // Class average score
             $table->float('highestScore')->nullable(); // Highest score in class
@@ -42,13 +43,17 @@ return new class extends Migration {
             $table->id('id');
             $table->unsignedBigInteger('actID');
             $table->unsignedBigInteger('questionID'); 
-            $table->unsignedBigInteger('itemTypeID'); // Foreign key to item_types
-        
-            // ✅ Foreign Key Constraints
+            $table->unsignedBigInteger('itemTypeID');
+            
+            // Add a actQuestionPoints column with no default; teacher must supply a value.
+            $table->integer('actQuestionPoints');
+            
+            // Foreign Key Constraints...
             $table->foreign('actID')->references('actID')->on('activities')->onDelete('cascade');
             $table->foreign('questionID')->references('questionID')->on('questions')->onDelete('cascade');
             $table->foreign('itemTypeID')->references('itemTypeID')->on('item_types')->onDelete('cascade');
         });
+        
 
         // ✅ Create the Activity Programming Languages Table (Pivot Table)
         Schema::create('activity_programming_languages', function (Blueprint $table) {

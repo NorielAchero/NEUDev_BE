@@ -38,15 +38,15 @@ class ActivityController extends Controller
         // Fetch ongoing and completed activities
         $ongoingActivities = Activity::with(['teacher', 'programmingLanguages'])
             ->whereIn('classID', $enrolledClassIDs)
-            ->where('startDate', '<=', $now)
-            ->where('endDate', '>=', $now)
-            ->orderBy('startDate', 'asc')
+            ->where('openDate', '<=', $now)
+            ->where('closeDate', '>=', $now)
+            ->orderBy('openDate', 'asc')
             ->get();
     
         $completedActivities = Activity::with(['teacher', 'programmingLanguages'])
             ->whereIn('classID', $enrolledClassIDs)
-            ->where('endDate', '<', $now)
-            ->orderBy('endDate', 'desc')
+            ->where('closeDate', '<', $now)
+            ->orderBy('closeDate', 'desc')
             ->get();
     
         // Attach student-specific details (Rank, Score, Duration)
@@ -66,7 +66,7 @@ class ActivityController extends Controller
             'ongoing' => $ongoingActivities,
             'completed' => $completedActivities
         ]);
-    }    
+    }
 
 
     /**
@@ -78,34 +78,35 @@ class ActivityController extends Controller
             $submission = ActivitySubmission::where('actID', $activity->actID)
                 ->where('studentID', $student->studentID)
                 ->first();
-
-            // Fetch all scores for ranking
+    
             $rankQuery = ActivitySubmission::where('actID', $activity->actID)
                 ->orderByDesc('score')
                 ->pluck('studentID')
                 ->toArray();
-
-            // Determine rank (ensure correct handling when student is missing)
+    
             $rankIndex = array_search($student->studentID, $rankQuery);
             $rank = $rankIndex !== false ? $rankIndex + 1 : null;
-
+    
             return [
-                'actID' => $activity->actID,
-                'actTitle' => $activity->actTitle,
-                'teacherName' => optional($activity->teacher)->firstname . ' ' . optional($activity->teacher)->lastname,
-                // Extract programming language names as an array (or 'N/A' if none)
-                'programmingLanguages' => $activity->programmingLanguages->isNotEmpty() 
-                    ? $activity->programmingLanguages->pluck('progLangName')->toArray() 
-                    : 'N/A',
-                'startDate' => $activity->startDate,
-                'endDate' => $activity->endDate,
-                'rank' => $rank,
-                'overallScore' => $submission->score ?? null,
-                'duration' => $submission ? $submission->duration . 'm' : null,
+                'actID'               => $activity->actID,
+                'actTitle'            => $activity->actTitle,
+                'actDesc'             => $activity->actDesc,
+                'classID'             => $activity->classID,
+                'teacherName'         => optional($activity->teacher)->firstname . ' ' . optional($activity->teacher)->lastname,
+                'actDifficulty'       => $activity->actDifficulty,
+                'actDuration'         => $activity->actDuration,
+                'programmingLanguages'=> $activity->programmingLanguages->isNotEmpty() 
+                                         ? $activity->programmingLanguages->pluck('progLangName')->toArray() 
+                                         : 'N/A',
+                'openDate'            => $activity->openDate,
+                'closeDate'           => $activity->closeDate,
+                'rank'                => $rank,
+                'overallScore'        => $submission->score ?? null,
+                'maxPoints'           => $activity->maxPoints,
             ];
         });
-    }
-
+    }    
+       
     /**
      * Create an activity (Only for Teachers)
      */
@@ -113,70 +114,84 @@ class ActivityController extends Controller
     {
         try {
             $teacher = Auth::user();
-
+    
             if (!$teacher || !$teacher instanceof \App\Models\Teacher) {
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
-
-            // ✅ Validate input
+    
+            // Validate input, including the new actDuration field
             $validator = \Validator::make($request->all(), [
-                'progLangIDs' => 'required|array', // ✅ Supports multiple languages
-                'progLangIDs.*' => 'exists:programming_languages,progLangID',
-                'actTitle' => 'required|string|max:255',
-                'actDesc' => 'required|string',
-                'difficulty' => 'required|in:Beginner,Intermediate,Advanced',
-                'startDate' => 'required|date',
-                'endDate' => 'required|date|after:startDate',
-                'maxPoints' => 'required|integer|min:1',
-                'questions' => 'required|array|min:1|max:3',
+                'progLangIDs'            => 'required|array',
+                'progLangIDs.*'          => 'exists:programming_languages,progLangID',
+                'actTitle'               => 'required|string|max:255',
+                'actDesc'                => 'required|string',
+                'actDifficulty'          => 'required|in:Beginner,Intermediate,Advanced',
+                'actDuration'            => [
+                    'required',
+                    'regex:/^(0\d|1\d|2[0-3]):([0-5]\d):([0-5]\d)$/'
+                ],
+                'openDate'               => 'required|date',
+                'closeDate'              => 'required|date|after:openDate',
+                'maxPoints'              => 'required|integer|min:1',
+                'questions'              => 'required|array|min:1|max:3',
                 'questions.*.questionID' => 'required|exists:questions,questionID',
                 'questions.*.itemTypeID' => 'required|exists:item_types,itemTypeID',
-            ]);
-
+                'questions.*.actQuestionPoints' => 'required|integer|min:1',
+            ]);            
+    
             if ($validator->fails()) {
                 return response()->json([
                     'message' => 'Validation failed.',
-                    'errors' => $validator->errors(),
+                    'errors'  => $validator->errors(),
                 ], 422);
             }
-
-            // ✅ Create the activity
+    
+            // Create the activity including actDuration
             $activity = Activity::create([
-                'classID' => $request->classID,
-                'teacherID' => $teacher->teacherID,
-                'actTitle' => $request->actTitle,
-                'actDesc' => $request->actDesc,
-                'difficulty' => $request->difficulty,
-                'startDate' => $request->startDate,
-                'endDate' => $request->endDate,
-                'maxPoints' => $request->maxPoints,
+                'classID'       => $request->classID,
+                'teacherID'     => $teacher->teacherID,
+                'actTitle'      => $request->actTitle,
+                'actDesc'       => $request->actDesc,
+                'actDifficulty' => $request->actDifficulty,
+                'actDuration'   => $request->actDuration, // New field
+                'openDate'      => $request->openDate,
+                'closeDate'     => $request->closeDate,
+                'maxPoints'     => $request->maxPoints, // temporary value; will be overridden
                 'classAvgScore' => null,
-                'highestScore' => null,
+                'highestScore'  => null,
             ]);
-
-            // ✅ Attach programming languages (Many-to-Many)
+    
+            // Attach programming languages
             $activity->programmingLanguages()->attach($request->progLangIDs);
-
-            // ✅ Attach selected questions
+    
+            // Attach selected questions with points from teacher input
             foreach ($request->questions as $question) {
                 ActivityQuestion::create([
-                    'actID' => $activity->actID,
+                    'actID'      => $activity->actID,
                     'questionID' => $question['questionID'],
                     'itemTypeID' => $question['itemTypeID'],
+                    'actQuestionPoints' => $question['actQuestionPoints'],
                 ]);
             }
-
+    
+            // Automatically calculate the total points from the questions
+            $totalPoints = array_sum(array_column($request->questions, 'actQuestionPoints'));
+    
+            // Update the activity's maxPoints to match the sum of question points
+            $activity->update(['maxPoints' => $totalPoints]);
+    
             return response()->json([
-                'message' => 'Activity created successfully',
+                'message'  => 'Activity created successfully',
                 'activity' => $activity->load('questions.question', 'questions.itemType', 'programmingLanguages'),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error while creating the activity.',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
-    }
+    }    
+
        
     /**
      * Get a specific activity by ID.
@@ -204,9 +219,9 @@ class ActivityController extends Controller
     {
         $now = now(); // ✅ Using Asia/Manila time (make sure it's set in config/app.php)
 
-        // ✅ Update `completed_at` for activities where endDate has passed
+        // ✅ Update `completed_at` for activities where closeDate has passed
         $updatedCount = Activity::where('classID', $classID)
-            ->where('endDate', '<', $now)
+            ->where('closeDate', '<', $now)
             ->whereNull('completed_at')
             ->update([
                 'completed_at' => $now,
@@ -216,20 +231,20 @@ class ActivityController extends Controller
         // 🔥 Log how many activities were updated
         \Log::info("🔥 Activities marked as completed: $updatedCount");
 
-        // ✅ Fetch Ongoing Activities (StartDate <= now && EndDate >= now && not completed)
+        // ✅ Fetch Ongoing Activities (openDate <= now && closeDate >= now && not completed)
         $ongoingActivities = Activity::with(['teacher', 'programmingLanguages', 'questions.question', 'questions.itemType'])
             ->where('classID', $classID)
-            ->where('startDate', '<=', $now)
-            ->where('endDate', '>=', $now)
+            ->where('openDate', '<=', $now)
+            ->where('closeDate', '>=', $now)
             ->whereNull('completed_at') // ✅ Exclude completed activities
-            ->orderBy('startDate', 'asc')
+            ->orderBy('openDate', 'asc')
             ->get();
 
         // ✅ Fetch Completed Activities (Has a `completed_at` timestamp)
         $completedActivities = Activity::with(['teacher', 'programmingLanguages', 'questions.question', 'questions.itemType'])
             ->where('classID', $classID)
             ->whereNotNull('completed_at') // ✅ Only fetch explicitly completed activities
-            ->orderBy('endDate', 'desc')
+            ->orderBy('closeDate', 'desc')
             ->get();
 
         // ✅ Log debugging info
@@ -261,76 +276,88 @@ class ActivityController extends Controller
     {
         try {
             $teacher = Auth::user();
-
+    
             if (!$teacher || !$teacher instanceof \App\Models\Teacher) {
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
-
+    
             $activity = Activity::where('actID', $actID)
                 ->where('teacherID', $teacher->teacherID)
                 ->first();
-
+    
             if (!$activity) {
                 return response()->json(['message' => 'Activity not found or unauthorized'], 404);
             }
-
-            // ✅ Validate input
+    
+            // Validate input, including actDuration if provided
             $validator = \Validator::make($request->all(), [
-                'progLangIDs' => 'sometimes|required|array', // ✅ Multiple languages
-                'progLangIDs.*' => 'exists:programming_languages,progLangID',
-                'actTitle' => 'sometimes|required|string|max:255',
-                'actDesc' => 'sometimes|required|string',
-                'difficulty' => 'sometimes|required|in:Beginner,Intermediate,Advanced',
-                'startDate' => 'sometimes|required|date',
-                'endDate' => 'sometimes|required|date|after:startDate',
-                'maxPoints' => 'sometimes|required|integer|min:1',
-                'questions' => 'sometimes|required|array|min:1|max:3',
+                'progLangIDs'            => 'sometimes|required|array',
+                'progLangIDs.*'          => 'exists:programming_languages,progLangID',
+                'actTitle'               => 'sometimes|required|string|max:255',
+                'actDesc'                => 'sometimes|required|string',
+                'actDifficulty'          => 'sometimes|required|in:Beginner,Intermediate,Advanced',
+                'actDuration'            => [
+                    'sometimes',
+                    'required',
+                    'regex:/^(0\d|1\d|2[0-3]):([0-5]\d):([0-5]\d)$/'
+                ],
+                'openDate'               => 'sometimes|required|date',
+                'closeDate'              => 'sometimes|required|date|after:openDate',
+                'maxPoints'              => 'sometimes|required|integer|min:1',
+                'questions'              => 'sometimes|required|array|min:1|max:3',
                 'questions.*.questionID' => 'required_with:questions|exists:questions,questionID',
                 'questions.*.itemTypeID' => 'required_with:questions|exists:item_types,itemTypeID',
-            ]);
-
+                'questions.*.actQuestionPoints' => 'required_with:questions|integer|min:1',
+            ]);            
+    
             if ($validator->fails()) {
                 return response()->json([
                     'message' => 'Validation failed.',
-                    'errors' => $validator->errors(),
+                    'errors'  => $validator->errors(),
                 ], 422);
             }
-
-            // ✅ Update activity details
+    
+            // Update activity details including actDuration if provided
             $activity->update($request->only([
-                'actTitle', 'actDesc', 'difficulty', 'startDate', 'endDate', 'maxPoints'
+                'actTitle', 'actDesc', 'actDifficulty', 'actDuration', 'openDate', 'closeDate', 'maxPoints'
             ]));
-
-            // ✅ Sync programming languages
+    
+            // Sync programming languages if provided
             if ($request->has('progLangIDs')) {
                 $activity->programmingLanguages()->sync($request->progLangIDs);
             }
-
-            // ✅ If questions are provided, update them
+    
+            // If questions are provided, update them including actQuestionPoints
             if ($request->has('questions')) {
                 ActivityQuestion::where('actID', $activity->actID)->delete();
-
+    
                 foreach ($request->questions as $question) {
                     ActivityQuestion::create([
-                        'actID' => $activity->actID,
+                        'actID'      => $activity->actID,
                         'questionID' => $question['questionID'],
                         'itemTypeID' => $question['itemTypeID'],
+                        'actQuestionPoints' => $question['actQuestionPoints'],
                     ]);
                 }
+    
+                // Recalculate total actQuestionPoints from the provided questions
+                $totalPoints = array_sum(array_column($request->questions, 'actQuestionPoints'));
+    
+                // Update the activity's maxPoints accordingly
+                $activity->update(['maxPoints' => $totalPoints]);
             }
-
+    
             return response()->json([
-                'message' => 'Activity updated successfully',
+                'message'  => 'Activity updated successfully',
                 'activity' => $activity->load('questions.question', 'questions.itemType', 'programmingLanguages'),
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error while updating the activity.',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
-    }
-
+    }     
 
     /**
      * Delete an activity (Only for Teachers).
@@ -366,40 +393,44 @@ class ActivityController extends Controller
         if (!$student || !$student instanceof \App\Models\Student) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-
+    
+        // Load the activity along with its related questions and item types.
         $activity = Activity::with([
-            'questions.question',
-            'questions.itemType',
+            'questions.question',  // load the actual question
+            'questions.itemType',  // load item type
             'classroom',
         ])->find($actID);
-
+    
         if (!$activity) {
             return response()->json(['message' => 'Activity not found'], 404);
         }
-
-        // Retrieve the student's specific submissions
+    
+        // Build the questions array for the front end.
         $questions = $activity->questions->map(function ($aq) use ($student, $activity) {
             $submission = ActivitySubmission::where('actID', $activity->actID)
                 ->where('studentID', $student->studentID)
                 ->where('questionID', $aq->question->questionID)
                 ->first();
-
+    
             return [
-                'questionName' => $aq->question->questionName ?? 'Unknown',
-                'difficulty' => $aq->question->difficulty ?? 'N/A',
-                'itemType' => $aq->itemType->itemTypeName ?? 'N/A',
-                'studentScore' => $submission ? $submission->score . '/' . $activity->maxPoints : '-/' . $activity->maxPoints,
-                'studentTimeSpent' => $submission ? $submission->timeSpent . ' min' : '-',
-                'submissionStatus' => $submission ? 'Submitted' : 'Not Attempted',
+                'questionName'      => $aq->question->questionName ?? 'Unknown',
+                'questionDifficulty'        => $aq->question->questionDifficulty ?? 'N/A',
+                'itemType'          => $aq->itemType->itemTypeName ?? 'N/A',
+                'actQuestionPoints' => $aq->actQuestionPoints,  // Pivot value from activity_questions
+                'studentScore'      => $submission ? $submission->score : null,
+                'studentTimeSpent'  => $submission ? $submission->timeSpent . ' min' : '-',
+                'submissionStatus'  => $submission ? 'Submitted' : 'Not Attempted',
             ];
         });
-
+    
         return response()->json([
             'activityName' => $activity->actTitle,
-            'maxPoints' => $activity->maxPoints,
-            'questions' => $questions
+            'actDesc'      => $activity->actDesc,
+            'maxPoints'    => $activity->maxPoints,
+            'questions'    => $questions,
         ]);
     }
+    
 
     public function showActivityLeaderboardByStudent($actID)
     {
@@ -453,7 +484,7 @@ class ActivityController extends Controller
     public function showActivityItemsByTeacher($actID)
     {
         $activity = Activity::with([
-            'questions.question.programmingLanguages', // Eager load question languages
+            'questions.question.programmingLanguages',
             'questions.itemType',
             'classroom',
         ])->find($actID);
@@ -462,11 +493,10 @@ class ActivityController extends Controller
             return response()->json(['message' => 'Activity not found'], 404);
         }
     
-        // Retrieve all related questions for this activity
         $questions = $activity->questions->map(function ($aq) use ($activity) {
             $question = $aq->question;
     
-            // Convert each programming language to a small array of { progLangID, progLangName }
+            // Programming languages
             $programmingLanguages = $question->programmingLanguages->map(function ($lang) {
                 return [
                     'progLangID'   => $lang->progLangID,
@@ -475,38 +505,31 @@ class ActivityController extends Controller
             })->values()->all();
     
             return [
-                'questionName' => $question->questionName ?? 'Unknown',
-                'questionDesc' => $question->questionDesc ?? '',
-                'difficulty'   => $question->difficulty ?? 'N/A',
-    
-                // Return an array of objects for the languages
+                'questionName'        => $question->questionName ?? 'Unknown',
+                'questionDesc'        => $question->questionDesc ?? '',
+                'questionDifficulty'          => $question->questionDifficulty ?? 'N/A',
                 'programming_languages' => $programmingLanguages,
-    
-                'itemType' => $aq->itemType->itemTypeName ?? 'N/A',
-    
-                // Test cases
-                'testCases' => $question->testCases->map(function ($tc) {
+                'itemType'            => $aq->itemType->itemTypeName ?? 'N/A',
+                'testCases'           => $question->testCases->map(function ($tc) {
                     return [
                         'inputData'      => $tc->inputData,
                         'expectedOutput' => $tc->expectedOutput,
+                        'testCasePoints' => $tc->testCasePoints,
                     ];
                 }),
-    
-                'avgStudentScore'      => $this->calculateAverageScore($question->questionID, $activity->actID),
-                'avgStudentTimeSpent'  => $this->calculateAverageTimeSpent($question->questionID, $activity->actID),
+                'avgStudentScore'     => $this->calculateAverageScore($question->questionID, $activity->actID),
+                'avgStudentTimeSpent' => $this->calculateAverageTimeSpent($question->questionID, $activity->actID),
+                'actQuestionPoints'   => $aq->actQuestionPoints,
             ];
         });
     
         return response()->json([
             'activityName' => $activity->actTitle,
+            'actDesc'      => $activity->actDesc,     // <--- ADD THIS
             'maxPoints'    => $activity->maxPoints,
-    
-            // If you want the activity's own programmingLanguages as well:
-            // 'programming_languages' => $activity->programmingLanguages->map(...),
-    
             'questions'    => $questions
         ]);
-    }
+    }        
     
 
     /**
@@ -590,8 +613,8 @@ class ActivityController extends Controller
             'activityName' => $activity->actTitle,
             'maxPoints' => $activity->maxPoints,
             'className' => optional($activity->classroom)->className ?? 'N/A',
-            'startDate' => $activity->startDate,
-            'endDate' => $activity->endDate,
+            'openDate' => $activity->openDate,
+            'closeDate' => $activity->closeDate,
             'settings' => [
                 'examMode' => (bool) $activity->examMode, // Records tab/window switches
                 'randomizedItems' => (bool) $activity->randomizedItems, // Random question order
