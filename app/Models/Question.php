@@ -17,7 +17,8 @@ class Question extends Model
         'itemTypeID',
         'questionName',
         'questionDesc',
-        'difficulty',
+        'questionDifficulty',
+        'questionPoints',
     ];
 
     /**

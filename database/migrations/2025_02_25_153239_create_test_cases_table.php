@@ -9,10 +9,12 @@ return new class extends Migration {
         Schema::create('test_cases', function (Blueprint $table) {
             $table->id('testCaseID');
             $table->unsignedBigInteger('questionID'); // Link to the question
-            $table->text('inputData')->nullable(); // Input provided to the student's code
-            $table->text('expectedOutput'); // Expected output for correctness check
-            // $table->timestamps();
-
+            $table->text('inputData')->nullable();      // Input provided to the student's code
+            $table->text('expectedOutput');             // Expected output for correctness check
+            
+            // NEW: Points for this test case (teacher-specified)
+            $table->integer('testCasePoints');
+            
             $table->foreign('questionID')->references('questionID')->on('questions')->onDelete('cascade');
         });
     }

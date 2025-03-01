@@ -17,10 +17,10 @@ class QuestionController extends Controller
     public function getByItemType(Request $request, $itemTypeID)
     {
         $query = Question::where('itemTypeID', $itemTypeID)
-            ->with(['testCases', 'programmingLanguages']) // ✅ Load multiple programming languages
+            ->with(['testCases', 'programmingLanguages']) // Load multiple programming languages
             ->orderBy('created_at', 'desc');
 
-        // ✅ If `progLangID` is provided, filter by programming languages
+        // If `progLangID` is provided, filter by programming languages
         if ($request->has('progLangID')) {
             $query->whereHas('programmingLanguages', function ($q) use ($request) {
                 $q->whereIn('progLangID', (array) $request->progLangID);
@@ -36,38 +36,42 @@ class QuestionController extends Controller
     public function store(Request $request)
     {
         $validatedData = $request->validate([
-            'itemTypeID' => 'required|exists:item_types,itemTypeID',
-            'progLangIDs' => 'required|array', // ✅ Multiple programming languages
-            'progLangIDs.*' => 'exists:programming_languages,progLangID', // Ensure each exists
-            'questionName' => 'required|string|max:255',
-            'questionDesc' => 'required|string',
-            'difficulty' => 'required|in:Beginner,Intermediate,Advanced',
-            'testCases' => 'nullable|array',
-            'testCases.*.inputData' => 'nullable|string',
+            'itemTypeID'      => 'required|exists:item_types,itemTypeID',
+            'progLangIDs'     => 'required|array', // Multiple programming languages
+            'progLangIDs.*'   => 'exists:programming_languages,progLangID', // Ensure each exists
+            'questionName'    => 'required|string|max:255',
+            'questionDesc'    => 'required|string',
+            'questionDifficulty'      => 'required|in:Beginner,Intermediate,Advanced',
+            'questionPoints'  => 'required|integer|min:1', // New: points field
+            'testCases'       => 'nullable|array',
+            'testCases.*.inputData'      => 'nullable|string',
             'testCases.*.expectedOutput' => 'required|string',
+            'testCases.*.testCasePoints' => 'required|integer|min:0',
         ]);
 
         DB::beginTransaction();
 
         try {
-            // ✅ Create the question
+            // Create the question including questionPoints
             $question = Question::create([
-                'itemTypeID' => $validatedData['itemTypeID'],
-                'questionName' => $validatedData['questionName'],
-                'questionDesc' => $validatedData['questionDesc'],
-                'difficulty' => $validatedData['difficulty'],
+                'itemTypeID'     => $validatedData['itemTypeID'],
+                'questionName'   => $validatedData['questionName'],
+                'questionDesc'   => $validatedData['questionDesc'],
+                'questionDifficulty'     => $validatedData['questionDifficulty'],
+                'questionPoints' => $validatedData['questionPoints'],
             ]);
 
-            // ✅ Attach multiple programming languages
+            // Attach multiple programming languages
             $question->programmingLanguages()->attach($validatedData['progLangIDs']);
 
-            // ✅ Attach test cases if provided
+            // Attach test cases if provided
             if (!empty($validatedData['testCases'])) {
                 foreach ($validatedData['testCases'] as $testCase) {
                     TestCase::create([
-                        'questionID' => $question->questionID,
-                        'inputData' => $testCase['inputData'] ?? "",
+                        'questionID'     => $question->questionID,
+                        'inputData'      => $testCase['inputData'] ?? "",
                         'expectedOutput' => $testCase['expectedOutput'],
+                        'testCasePoints'   => $testCase['testCasePoints'],
                     ]);
                 }
             }
@@ -75,8 +79,8 @@ class QuestionController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Question created successfully',
-                'data' => $question->load(['testCases', 'programmingLanguages']),
+                'message'    => 'Question created successfully',
+                'data'       => $question->load(['testCases', 'programmingLanguages']),
                 'created_at' => $question->created_at->toDateTimeString(),
                 'updated_at' => $question->updated_at->toDateTimeString(),
             ], 201);
@@ -85,7 +89,7 @@ class QuestionController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Failed to create question',
-                'error' => $e->getMessage()
+                'error'   => $e->getMessage()
             ], 500);
         }
     }
@@ -102,7 +106,7 @@ class QuestionController extends Controller
         }
 
         return response()->json([
-            'question' => $question,
+            'question'   => $question,
             'created_at' => $question->created_at->toDateTimeString(),
             'updated_at' => $question->updated_at->toDateTimeString()
         ]);
@@ -120,39 +124,43 @@ class QuestionController extends Controller
         }
 
         $validatedData = $request->validate([
-            'itemTypeID' => 'required|exists:item_types,itemTypeID',
-            'progLangIDs' => 'required|array', // ✅ Multiple programming languages
-            'progLangIDs.*' => 'exists:programming_languages,progLangID',
-            'questionName' => 'required|string|max:255',
-            'questionDesc' => 'required|string',
-            'difficulty' => 'required|in:Beginner,Intermediate,Advanced',
-            'testCases' => 'nullable|array',
-            'testCases.*.inputData' => 'nullable|string',
+            'itemTypeID'      => 'required|exists:item_types,itemTypeID',
+            'progLangIDs'     => 'required|array', // Multiple programming languages
+            'progLangIDs.*'   => 'exists:programming_languages,progLangID',
+            'questionName'    => 'required|string|max:255',
+            'questionDesc'    => 'required|string',
+            'questionDifficulty'      => 'required|in:Beginner,Intermediate,Advanced',
+            'questionPoints'  => 'required|integer|min:1', // New: points field validation
+            'testCases'       => 'nullable|array',
+            'testCases.*.inputData'      => 'nullable|string',
             'testCases.*.expectedOutput' => 'required|string',
+            'testCases.*.testCasePoints' => 'required|integer|min:0',
         ]);
 
         DB::beginTransaction();
 
         try {
-            // ✅ Update question details
+            // Update question details, including questionPoints
             $question->update([
-                'itemTypeID' => $validatedData['itemTypeID'],
-                'questionName' => $validatedData['questionName'],
-                'questionDesc' => $validatedData['questionDesc'],
-                'difficulty' => $validatedData['difficulty'],
+                'itemTypeID'     => $validatedData['itemTypeID'],
+                'questionName'   => $validatedData['questionName'],
+                'questionDesc'   => $validatedData['questionDesc'],
+                'questionDifficulty'     => $validatedData['questionDifficulty'],
+                'questionPoints' => $validatedData['questionPoints'],
             ]);
 
-            // ✅ Sync multiple programming languages
+            // Sync multiple programming languages
             $question->programmingLanguages()->sync($validatedData['progLangIDs']);
 
-            // ✅ If test cases are provided, delete existing and add new ones
+            // If test cases are provided, delete existing and add new ones
             if ($request->has('testCases')) {
                 TestCase::where('questionID', $questionID)->delete();
                 foreach ($validatedData['testCases'] as $testCase) {
                     TestCase::create([
-                        'questionID' => $question->questionID,
-                        'inputData' => $testCase['inputData'] ?? "",
+                        'questionID'     => $question->questionID,
+                        'inputData'      => $testCase['inputData'] ?? "",
                         'expectedOutput' => $testCase['expectedOutput'],
+                        'testCasePoints'   => $testCase['testCasePoints'],
                     ]);
                 }
             }
@@ -160,8 +168,8 @@ class QuestionController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Question updated successfully',
-                'data' => $question->load(['testCases', 'programmingLanguages']),
+                'message'    => 'Question updated successfully',
+                'data'       => $question->load(['testCases', 'programmingLanguages']),
                 'created_at' => $question->created_at->toDateTimeString(),
                 'updated_at' => $question->updated_at->toDateTimeString(),
             ], 200);
@@ -170,7 +178,7 @@ class QuestionController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Failed to update question',
-                'error' => $e->getMessage()
+                'error'   => $e->getMessage()
             ], 500);
         }
     }
@@ -186,14 +194,14 @@ class QuestionController extends Controller
             return response()->json(['message' => 'Question not found'], 404);
         }
 
-        // ✅ Prevent deleting questions linked to an activity
+        // Prevent deleting questions linked to an activity
         if (ActivityQuestion::where('questionID', $questionID)->exists()) {
             return response()->json(['message' => 'Cannot delete: Question is linked to an activity.'], 403);
         }
 
         DB::beginTransaction();
         try {
-            // ✅ Detach programming languages before deleting
+            // Detach programming languages before deleting
             $question->programmingLanguages()->detach();
 
             $question->delete();
@@ -204,7 +212,7 @@ class QuestionController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Failed to delete question',
-                'error' => $e->getMessage()
+                'error'   => $e->getMessage()
             ], 500);
         }
     }

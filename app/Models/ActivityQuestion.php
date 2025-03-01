@@ -17,6 +17,7 @@ class ActivityQuestion extends Model
         'actID',
         'questionID',
         'itemTypeID',
+        'actQuestionPoints',
     ];
 
     /**

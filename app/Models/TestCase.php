@@ -9,13 +9,15 @@ class TestCase extends Model {
     use HasFactory;
 
     protected $table = 'test_cases';
+    protected $primaryKey = 'testCaseID';
 
     public $timestamps = false; // Disable timestamps
 
     protected $fillable = [
         'questionID',
         'inputData',
-        'expectedOutput'
+        'expectedOutput',
+        'testCasePoints'
     ];
 
     public function question() {

@@ -11,13 +11,14 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        // ✅ Create the Questions Table
+        // ✅ Create the Questions Table with a questionPoints column
         Schema::create('questions', function (Blueprint $table) {
             $table->id('questionID'); // Primary Key
             $table->unsignedBigInteger('itemTypeID'); // Foreign Key for Item Type
             $table->string('questionName'); // Question Title
             $table->text('questionDesc'); // Question Description
-            $table->enum('difficulty', ['Beginner', 'Intermediate', 'Advanced']);
+            $table->enum('questionDifficulty', ['Beginner', 'Intermediate', 'Advanced']);
+            $table->integer('questionPoints');
             $table->timestamps();
 
             // ✅ Foreign Key Constraint
@@ -41,7 +42,7 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('question_programming_languages'); // ✅ Drop pivot table first
-        Schema::dropIfExists('questions'); // ✅ Drop Questions Table
+        Schema::dropIfExists('question_programming_languages'); // Drop pivot table first
+        Schema::dropIfExists('questions'); // Then drop the Questions Table
     }
 };
