@@ -15,6 +15,7 @@ class Question extends Model
 
     protected $fillable = [
         'itemTypeID',
+        'teacherID',
         'questionName',
         'questionDesc',
         'questionDifficulty',
@@ -49,4 +50,12 @@ class Question extends Model
     {
         return $this->hasMany(TestCase::class, 'questionID');
     }
+
+    /**
+     * Get the specific teacher accessing the question
+     */
+    public function teacher()
+{
+    return $this->belongsTo(Teacher::class, 'teacherID');
+}
 }

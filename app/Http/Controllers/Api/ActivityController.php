@@ -16,55 +16,73 @@ class ActivityController extends Controller
     ///////////////////////////////////////////////////
     // ALL FUNCTIONS IN CLASS MANAGEMENT PAGE VIA ACTIVITY
     ///////////////////////////////////////////////////
+
+
     /**
      * Get all activities for the authenticated student, categorized into Ongoing and Completed.
      */
     public function showStudentActivities()
     {
         $student = Auth::user();
-    
+
         if (!$student || !$student instanceof \App\Models\Student) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-    
+
         $enrolledClassIDs = $student->classes()->pluck('class_student.classID');
-    
+
         if ($enrolledClassIDs->isEmpty()) {
             return response()->json(['message' => 'You are not enrolled in any class.'], 404);
         }
-    
+
         $now = now();
-    
-        // Fetch ongoing and completed activities
+
+        // 1. Fetch upcoming activities (openDate > now)
+        $upcomingActivities = Activity::with(['teacher', 'programmingLanguages'])
+            ->whereIn('classID', $enrolledClassIDs)
+            ->where('openDate', '>', $now)
+            ->orderBy('openDate', 'asc')
+            ->get();
+
+        // 2. Fetch ongoing activities (openDate <= now && closeDate >= now)
         $ongoingActivities = Activity::with(['teacher', 'programmingLanguages'])
             ->whereIn('classID', $enrolledClassIDs)
             ->where('openDate', '<=', $now)
             ->where('closeDate', '>=', $now)
             ->orderBy('openDate', 'asc')
             ->get();
-    
+
+        // 3. Fetch completed activities (closeDate < now)
         $completedActivities = Activity::with(['teacher', 'programmingLanguages'])
             ->whereIn('classID', $enrolledClassIDs)
             ->where('closeDate', '<', $now)
             ->orderBy('closeDate', 'desc')
             ->get();
-    
-        // Attach student-specific details (Rank, Score, Duration)
-        $ongoingActivities = $this->attachStudentDetails($ongoingActivities, $student);
-        $completedActivities = $this->attachStudentDetails($completedActivities, $student);
-    
-        // ✅ Return a proper response if there are no activities
-        if ($ongoingActivities->isEmpty() && $completedActivities->isEmpty()) {
+
+        // Attach student-specific details (Rank, Score, Duration, etc.)
+        $upcomingActivities   = $this->attachStudentDetails($upcomingActivities, $student);
+        $ongoingActivities    = $this->attachStudentDetails($ongoingActivities, $student);
+        $completedActivities  = $this->attachStudentDetails($completedActivities, $student);
+
+        // If no activities are found in any category, return an empty array
+        if (
+            $upcomingActivities->isEmpty() &&
+            $ongoingActivities->isEmpty() &&
+            $completedActivities->isEmpty()
+        ) {
             return response()->json([
                 'message' => 'No activities found.',
+                'upcoming' => [],
                 'ongoing' => [],
                 'completed' => []
             ], 200);
         }
-    
+
+        // Return all three categories
         return response()->json([
-            'ongoing' => $ongoingActivities,
-            'completed' => $completedActivities
+            'upcoming'   => $upcomingActivities,
+            'ongoing'    => $ongoingActivities,
+            'completed'  => $completedActivities
         ]);
     }
 
@@ -213,61 +231,90 @@ class ActivityController extends Controller
     }
 
     /**
-     * Get all activities for a specific class, categorized into Ongoing and Completed.
+     * Get all activities for a specific class, categorized into Upcoming, Ongoing, and Completed.
      */
     public function showClassActivities($classID)
     {
-        $now = now(); // ✅ Using Asia/Manila time (make sure it's set in config/app.php)
-
-        // ✅ Update `completed_at` for activities where closeDate has passed
+        $now = now(); // Current time
+    
+        // Update `completed_at` for activities where closeDate has passed
         $updatedCount = Activity::where('classID', $classID)
             ->where('closeDate', '<', $now)
             ->whereNull('completed_at')
             ->update([
                 'completed_at' => $now,
-                'updated_at' => $now, // ✅ Ensure timestamps are updated
+                'updated_at' => $now,
             ]);
-
-        // 🔥 Log how many activities were updated
-        \Log::info("🔥 Activities marked as completed: $updatedCount");
-
-        // ✅ Fetch Ongoing Activities (openDate <= now && closeDate >= now && not completed)
-        $ongoingActivities = Activity::with(['teacher', 'programmingLanguages', 'questions.question', 'questions.itemType'])
+    
+        \Log::info("Activities marked as completed: $updatedCount");
+    
+        // Upcoming Activities: openDate is in the future
+        $upcomingActivities = Activity::with([
+                'teacher', 
+                'programmingLanguages', 
+                'questions.question',
+                'questions.question.programmingLanguages',
+                'questions.itemType'
+            ])
+            ->where('classID', $classID)
+            ->where('openDate', '>', $now)
+            ->orderBy('openDate', 'asc')
+            ->get();
+    
+        // Ongoing Activities: openDate <= now && closeDate >= now && not completed
+        $ongoingActivities = Activity::with([
+                'teacher', 
+                'programmingLanguages', 
+                'questions.question',
+                'questions.question.programmingLanguages', 
+                'questions.itemType'
+            ])
             ->where('classID', $classID)
             ->where('openDate', '<=', $now)
             ->where('closeDate', '>=', $now)
-            ->whereNull('completed_at') // ✅ Exclude completed activities
+            ->whereNull('completed_at')
             ->orderBy('openDate', 'asc')
             ->get();
-
-        // ✅ Fetch Completed Activities (Has a `completed_at` timestamp)
-        $completedActivities = Activity::with(['teacher', 'programmingLanguages', 'questions.question', 'questions.itemType'])
+    
+        // Completed Activities: only include those where both openDate and closeDate are in the past
+        $completedActivities = Activity::with([
+                'teacher', 
+                'programmingLanguages', 
+                'questions.question', 
+                'questions.question.programmingLanguages',
+                'questions.itemType'
+            ])
             ->where('classID', $classID)
-            ->whereNotNull('completed_at') // ✅ Only fetch explicitly completed activities
+            ->whereNotNull('completed_at')
+            ->where('openDate', '<=', $now)  // Only if activity already started
+            ->where('closeDate', '<', $now)   // And finished
             ->orderBy('closeDate', 'desc')
             ->get();
-
-        // ✅ Log debugging info
-        \Log::info("✅ Fetched Activities", [
+    
+        \Log::info("Fetched Activities", [
             'classID' => $classID,
+            'upcomingCount' => $upcomingActivities->count(),
             'ongoingCount' => $ongoingActivities->count(),
             'completedCount' => $completedActivities->count(),
             'current_time' => $now->toDateTimeString(),
         ]);
-
-        if ($ongoingActivities->isEmpty() && $completedActivities->isEmpty()) {
+    
+        if ($upcomingActivities->isEmpty() && $ongoingActivities->isEmpty() && $completedActivities->isEmpty()) {
             return response()->json([
                 'message' => 'No activities found.',
+                'upcoming' => [],
                 'ongoing' => [],
                 'completed' => []
             ], 200);
         }
-
+    
         return response()->json([
+            'upcoming' => $upcomingActivities,
             'ongoing' => $ongoingActivities,
             'completed' => $completedActivities
         ]);
     }
+    
 
     /**
      * Update an existing activity (Only for Teachers)
@@ -317,6 +364,13 @@ class ActivityController extends Controller
                 ], 422);
             }
     
+            // Clear completed_at if the new closeDate is in the future
+            if ($request->has('closeDate') && \Carbon\Carbon::parse($request->closeDate)->gt(now())) {
+                $activity->completed_at = null;
+                $activity->updated_at = now();
+                $activity->save();
+            }
+    
             // Update activity details including actDuration if provided
             $activity->update($request->only([
                 'actTitle', 'actDesc', 'actDifficulty', 'actDuration', 'openDate', 'closeDate', 'maxPoints'
@@ -349,7 +403,7 @@ class ActivityController extends Controller
     
             return response()->json([
                 'message'  => 'Activity updated successfully',
-                'activity' => $activity->load('questions.question', 'questions.itemType', 'programmingLanguages'),
+                'activity' => $activity->load('questions.question', 'questions.question.programmingLanguages', 'questions.itemType', 'programmingLanguages'),
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -357,7 +411,7 @@ class ActivityController extends Controller
                 'error'   => $e->getMessage(),
             ], 500);
         }
-    }     
+    }        
 
     /**
      * Delete an activity (Only for Teachers).
@@ -415,7 +469,7 @@ class ActivityController extends Controller
             return [
                 'questionName'      => $aq->question->questionName ?? 'Unknown',
                 'questionDifficulty'        => $aq->question->questionDifficulty ?? 'N/A',
-                'itemType'          => $aq->itemType->itemTypeName ?? 'N/A',
+                'itemTypeID'          => $aq->itemTypeID->itemTypeName ?? 'N/A',
                 'actQuestionPoints' => $aq->actQuestionPoints,  // Pivot value from activity_questions
                 'studentScore'      => $submission ? $submission->score : null,
                 'studentTimeSpent'  => $submission ? $submission->timeSpent . ' min' : '-',
