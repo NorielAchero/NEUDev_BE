@@ -88,6 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/classes', 'index'); // Get all classes
             Route::post('/class', 'store'); // Create a class
             Route::get('/class/{id}', 'show'); // Get class details
+            Route::put('/class/{id}', 'update');         // Update an existing class
             Route::delete('/class/{id}', 'destroy'); // Delete a class
         });
 

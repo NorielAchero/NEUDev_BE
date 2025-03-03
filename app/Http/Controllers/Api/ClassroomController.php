@@ -105,6 +105,43 @@ class ClassroomController extends Controller
         return response()->json(['message' => 'Class deleted successfully']);
     }
 
+
+    // In ClassroomController.php
+
+    /**
+     * Update a class (Only for Teachers)
+     */
+    public function update(Request $request, $id)
+    {
+        $teacher = Auth::user();
+
+        if (!$teacher || !$teacher instanceof \App\Models\Teacher) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // Find the class created by this teacher
+        $classroom = Classroom::where('classID', $id)
+            ->where('teacherID', $teacher->teacherID)
+            ->first();
+
+        if (!$classroom) {
+            return response()->json(['message' => 'Class not found or you are not authorized to update this class'], 404);
+        }
+
+        // Validate incoming data
+        $request->validate([
+            'className'    => 'required|string|max:255',
+            'classSection' => 'required|string|max:255'
+        ]);
+
+        // Update the fields
+        $classroom->className    = $request->className;
+        $classroom->classSection = $request->classSection;
+        $classroom->save();
+
+        return response()->json($classroom);
+    }
+
     /**
      * Enroll a student in a class
      */
