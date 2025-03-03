@@ -13,7 +13,8 @@ return new class extends Migration {
         // ✅ Create the Activities Table
         Schema::create('activities', function (Blueprint $table) {
             $table->id('actID');
-            $table->unsignedBigInteger('classID'); // Foreign key to classes
+            // Change classID type to unsignedInteger to match the classes table custom primary key
+            $table->unsignedInteger('classID'); // Foreign key to classes
             $table->unsignedBigInteger('teacherID'); // Foreign key to teachers
             $table->string('actTitle');
             $table->text('actDesc'); // Long description
@@ -41,6 +42,7 @@ return new class extends Migration {
         // ✅ Create the Activity Questions Table
         Schema::create('activity_questions', function (Blueprint $table) {
             $table->id('id');
+            // Make sure actID type matches that of activities.actID
             $table->unsignedBigInteger('actID');
             $table->unsignedBigInteger('questionID'); 
             $table->unsignedBigInteger('itemTypeID');
@@ -54,10 +56,10 @@ return new class extends Migration {
             $table->foreign('itemTypeID')->references('itemTypeID')->on('item_types')->onDelete('cascade');
         });
         
-
         // ✅ Create the Activity Programming Languages Table (Pivot Table)
         Schema::create('activity_programming_languages', function (Blueprint $table) {
             $table->id();
+            // actID type should match the activities table
             $table->unsignedBigInteger('actID');
             $table->unsignedBigInteger('progLangID');
 

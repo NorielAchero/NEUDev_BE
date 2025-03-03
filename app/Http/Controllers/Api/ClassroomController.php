@@ -224,6 +224,29 @@ class ClassroomController extends Controller
         });
     
         return response()->json($formattedClasses);
+
+    }
+
+    public function showClassInfo($id)
+    {
+        // Retrieve the class along with teacher details (and students if needed)
+        $classroom = Classroom::with('teacher')->find($id);
+
+        if (!$classroom) {
+            return response()->json(['message' => 'Class not found'], 404);
+        }
+
+        // Return only the necessary class info as JSON
+        return response()->json([
+            'classID'      => $classroom->classID,
+            'className'    => $classroom->className,
+            'classSection' => $classroom->classSection,
+            'teacher'      => [
+                'teacherID'   => $classroom->teacher->teacherID,
+                'teacherName' => $classroom->teacher->firstname . ' ' . $classroom->teacher->lastname,
+            ],
+        ]);
     }
 
 }
+
