@@ -173,29 +173,29 @@ class ClassroomController extends Controller
     /**
      * Unenroll a student from a class
      */
-    public function unenrollStudent(Request $request, $classID)
+    public function unenrollStudent(Request $request, $classID, $studentID)
     {
-        $student = Auth::user();
-
-        if (!$student || !$student instanceof \App\Models\Student) {
+        $teacher = Auth::user();
+    
+        if (!$teacher || !$teacher instanceof \App\Models\Teacher) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-
+    
         $classroom = Classroom::find($classID);
-
+    
         if (!$classroom) {
             return response()->json(['message' => 'Class not found'], 404);
         }
-
-        // Check if student is actually enrolled before detaching
-        if (!$classroom->students()->where('students.studentID', $student->studentID)->exists()) {
+    
+        // Check if the student is enrolled
+        if (!$classroom->students()->where('students.studentID', $studentID)->exists()) {
             return response()->json(['message' => 'Student is not enrolled in this class'], 409);
         }
-
+    
         // Detach student from class
-        $classroom->students()->detach($student->studentID);
-
-        return response()->json(['message' => 'Unenrolled successfully']);
+        $classroom->students()->detach($studentID);
+    
+        return response()->json(['message' => 'Student unenrolled successfully']);
     }
 
 
@@ -247,6 +247,32 @@ class ClassroomController extends Controller
             ],
         ]);
     }
+
+    public function getClassStudents($classID)
+    {
+        $classroom = Classroom::with('students')->find($classID);
+    
+        if (!$classroom) {
+            return response()->json(['message' => 'Class not found'], 404);
+        }
+    
+        // Fetch students with relevant details
+        $students = $classroom->students->map(function ($student) {
+            return [
+                'studentID'     => $student->studentID,
+                'firstname'     => $student->firstname,
+                'lastname'      => $student->lastname,
+                'studentNumber' => $student->student_num,
+                'profileImage'  => $student->profileImage 
+                    ? url('storage/' . $student->profileImage) 
+                    : url('storage/profile_images/default-avatar.jpg'), // Use default if no image
+                'averageScore'  => rand(70, 100) // Replace with actual computation
+            ];
+        });
+    
+        return response()->json($students);
+    }
+    
 
 }
 

@@ -12,15 +12,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Log;
 
-// 📌 Fallback route for undefined API calls
+// Fallback route for undefined API calls
 Route::fallback(function () {
-    Log::warning('⚠️ Invalid API Request:', [
+    Log::warning('Invalid API Request:', [
         'url' => request()->url(),
         'method' => request()->method(),
         'headers' => request()->header(),
         'body' => request()->all()
     ]);
-
     return response()->json([
         'message' => 'Route not found. Please check your API endpoint.',
         'requested_url' => request()->url(),
@@ -28,106 +27,93 @@ Route::fallback(function () {
     ], 404);
 });
 
-// 📌 Authentication Routes (Public)
+// Authentication Routes (Public)
 Route::controller(AuthController::class)->group(function () {
-    Route::post('/register/student', 'registerStudent'); // Register Student
-    Route::post('/register/teacher', 'registerTeacher'); // Register Teacher
-    Route::post('/login', 'login');                      // Login (both roles)
+    Route::post('/register/student', 'registerStudent');
+    Route::post('/register/teacher', 'registerTeacher');
+    Route::post('/login', 'login');
 });
 
-// 📌 Protected Routes (Requires Authentication via Sanctum)
+// Protected Routes (Requires Authentication via Sanctum)
 Route::middleware('auth:sanctum')->group(function () {
-
-    // 🔹 Logout
     Route::post('/logout', [AuthController::class, 'logout']);
-
-    // 🔹 Get Authenticated User Info
     Route::get('/user', function (Request $request) {
         $user = $request->user();
         return response()->json([
             'user' => $user,
             'user_type' => $user instanceof \App\Models\Student ? 'student' :
-                          ($user instanceof \App\Models\Teacher ? 'teacher' : 'unknown'),
+                ($user instanceof \App\Models\Teacher ? 'teacher' : 'unknown'),
         ]);
     });
 
-    // 📌 Student Routes
+    // Student Routes
     Route::prefix('student')->group(function () {
         Route::controller(ProfileStudentController::class)->group(function () {
-            Route::get('/profile/{student}', 'show');     // View student profile
-            Route::put('/profile/{student}', 'update');   // Update student profile
-            Route::delete('/profile/{student}', 'destroy'); // Delete student profile
+            Route::get('/profile/{student}', 'show');
+            Route::put('/profile/{student}', 'update');
+            Route::delete('/profile/{student}', 'destroy');
         });
 
-        // 📌 Student Enrollment Routes
         Route::prefix('class')->group(function () {
-            Route::post('{classID}/enroll', [ClassroomController::class, 'enrollStudent']); // Enroll student
-            Route::delete('{classID}/unenroll', [ClassroomController::class, 'unenrollStudent']); // Unenroll student
+            Route::post('{classID}/enroll', [ClassroomController::class, 'enrollStudent']);
+            Route::delete('{classID}/unenroll', [ClassroomController::class, 'unenrollStudent']);
         });
 
-         // ✅ Fetch only the classes where the student is enrolled
-         Route::get('/classes', [ClassroomController::class, 'getStudentClasses']); 
-
+        Route::get('/classes', [ClassroomController::class, 'getStudentClasses']);
         Route::controller(ActivityController::class)->group(function () {
-            Route::get('/activities', 'showStudentActivities'); // Get all student activities
+            Route::get('/activities', 'showStudentActivities');
         });
         Route::get('/activities/{actID}/items', [ActivityController::class, 'showActivityItemsByStudent']);
         Route::get('/activities/{actID}/leaderboard', [ActivityController::class, 'showActivityLeaderboardByStudent']);
-
     });
 
-    // 📌 Teacher Routes
+    // Teacher Routes
     Route::prefix('teacher')->group(function () {
         Route::controller(ProfileTeacherController::class)->group(function () {
-            Route::get('/profile/{teacher}', 'show');     // View teacher profile
-            Route::put('/profile/{teacher}', 'update');   // Update teacher profile
-            Route::delete('/profile/{teacher}', 'destroy'); // Delete teacher profile
+            Route::get('/profile/{teacher}', 'show');
+            Route::put('/profile/{teacher}', 'update');
+            Route::delete('/profile/{teacher}', 'destroy');
         });
 
         Route::controller(ClassroomController::class)->group(function () {
-            Route::get('/classes', 'index'); // Get all classes
-            Route::post('/class', 'store'); // Create a class
-            Route::get('/class/{id}', 'show'); // Get class details
-            Route::get('/class-info/{id}', 'showClassInfo'); // For Class Page
-            Route::put('/class/{id}', 'update');         // Update an existing class
-            Route::delete('/class/{id}', 'destroy'); // Delete a class
+            Route::get('/classes', 'index');
+            Route::post('/class', 'store');
+            Route::get('/class/{id}', 'show');
+            Route::get('/class-info/{id}', 'showClassInfo');
+            Route::put('/class/{id}', 'update');
+            Route::delete('/class/{id}', 'destroy');
+            Route::get('/class/{classID}/students', 'getClassStudents');
+            Route::delete('/class/{classID}/unenroll/{studentID}', 'unenrollStudent');
         });
-        
 
-        // CLASS MANAGEMENT PAGE VIA ACTIVITY
         Route::controller(ActivityController::class)->group(function () {
-            Route::post('/activities', 'store'); // Create an activity
-            Route::get('/class/{classID}/activities', 'showClassActivities'); // Get activities for a class
-            Route::get('/activities/{actID}', 'show'); // Get a specific activity
-            Route::put('/activities/{actID}', 'update'); // Edit an activity
-            Route::delete('/activities/{actID}', 'destroy'); // Delete an activity
+            Route::post('/activities', 'store');
+            Route::get('/class/{classID}/activities', 'showClassActivities');
+            Route::get('/activities/{actID}', 'show');
+            Route::put('/activities/{actID}', 'update');
+            Route::delete('/activities/{actID}', 'destroy');
         });
 
         Route::controller(QuestionController::class)->group(function () {
-            Route::get('/questions/itemType/{itemTypeID}', 'getByItemType'); // Get preset questions by item type
-            Route::post('/questions', 'store'); // ✅ Create a question (with test cases)
-            Route::get('/questions/{questionID}', 'show'); // ✅ Get a single question (with test cases)
-            Route::put('/questions/{questionID}', 'update'); // ✅ Update a question (and test cases)
-            Route::delete('/questions/{questionID}', 'destroy'); // ✅ Delete a question (removes test cases)
+            Route::get('/questions/itemType/{itemTypeID}', 'getByItemType');
+            Route::post('/questions', 'store');
+            Route::get('/questions/{questionID}', 'show');
+            Route::put('/questions/{questionID}', 'update');
+            Route::delete('/questions/{questionID}', 'destroy');
         });
-        
-        // ITEM TYPES
+
         Route::get('/itemTypes', [ItemTypeController::class, 'index']);
-
-        // PROGRAMMING LANGUAGES
         Route::controller(ProgrammingLanguageController::class)->group(function () {
-            Route::get('/programmingLanguages', 'get'); // ✅ Get all programming languages
-            Route::post('/programmingLanguages', 'store'); // ✅ Add a new programming language
-            Route::get('/programmingLanguages/{id}', 'show'); // ✅ Get a single language by ID
-            Route::put('/programmingLanguages/{id}', 'update'); // ✅ Update a programming language
-            Route::delete('/programmingLanguages/{id}', 'destroy'); // ✅ Delete a programming language
+            Route::get('/programmingLanguages', 'get');
+            Route::post('/programmingLanguages', 'store');
+            Route::get('/programmingLanguages/{id}', 'show');
+            Route::put('/programmingLanguages/{id}', 'update');
+            Route::delete('/programmingLanguages/{id}', 'destroy');
         });
 
-        // ACTIVITY MANAGEMENT PAGE
         Route::get('/activities/{actID}/items', [ActivityController::class, 'showActivityItemsByTeacher']);
         Route::get('/activities/{actID}/leaderboard', [ActivityController::class, 'showActivityLeaderboardByTeacher']);
-        Route::get('/activities/{actID}/settings', [ActivityController::class, 'showActivitySettingsByTeacher']); // Fetch settings
-        Route::put('/activities/{actID}/settings', [ActivityController::class, 'updateActivitySettingsByTeacher']); // Update settings
-
+        Route::get('/activities/{actID}/settings', [ActivityController::class, 'showActivitySettingsByTeacher']);
+        Route::put('/activities/{actID}/settings', [ActivityController::class, 'updateActivitySettingsByTeacher']);
     });
 });
