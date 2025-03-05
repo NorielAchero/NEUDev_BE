@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ActivityController;
 use App\Http\Controllers\Api\QuestionController;
 use App\Http\Controllers\Api\ItemTypeController;
 use App\Http\Controllers\Api\ProgrammingLanguageController;
+use App\Http\Controllers\Api\BulletinController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Log;
@@ -60,9 +61,11 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         Route::get('/classes', [ClassroomController::class, 'getStudentClasses']);
+
         Route::controller(ActivityController::class)->group(function () {
             Route::get('/activities', 'showStudentActivities');
         });
+
         Route::get('/activities/{actID}/items', [ActivityController::class, 'showActivityItemsByStudent']);
         Route::get('/activities/{actID}/leaderboard', [ActivityController::class, 'showActivityLeaderboardByStudent']);
     });
@@ -115,5 +118,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/activities/{actID}/leaderboard', [ActivityController::class, 'showActivityLeaderboardByTeacher']);
         Route::get('/activities/{actID}/settings', [ActivityController::class, 'showActivitySettingsByTeacher']);
         Route::put('/activities/{actID}/settings', [ActivityController::class, 'updateActivitySettingsByTeacher']);
+
+        // 📌 Bulletin Board Routes (Newly Added)
+        Route::get('/class/{classID}/bulletin', [BulletinController::class, 'index']); // Get posts by class
+        Route::post('/bulletin', [BulletinController::class, 'store']); // Create a new post
+        Route::delete('/bulletin/{id}', [BulletinController::class, 'destroy']); // Delete a post
     });
 });
