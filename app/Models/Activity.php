@@ -9,9 +9,9 @@ class Activity extends Model
 {
     use HasFactory;
 
-    protected $table = 'activities'; // Explicitly define the table name
-    protected $primaryKey = 'actID'; // Set the custom primary key
-    public $timestamps = true; // Keep timestamps
+    protected $table = 'activities';
+    protected $primaryKey = 'actID';
+    public $timestamps = true;
 
     protected $fillable = [
         'classID',
@@ -34,7 +34,7 @@ class Activity extends Model
     ];
 
     /**
-     * Get the class associated with this activity.
+     * Get the classroom associated with this activity.
      */
     public function classroom()
     {
@@ -50,26 +50,26 @@ class Activity extends Model
     }
 
     /**
-     * Get the programming languages used in this activity.
+     * Get the programming languages for this activity.
      */
     public function programmingLanguages()
     {
         return $this->belongsToMany(
-            ProgrammingLanguage::class, 
-            'activity_programming_languages', 
-            'actID', 
+            ProgrammingLanguage::class,
+            'activity_programming_languages',
+            'actID',
             'progLangID'
         );
     }
 
     /**
-     * Get all preset questions linked to this activity.
+     * Get all items (previously "questions") linked to this activity.
      */
-    public function questions()
+    public function items()
     {
-        return $this->hasMany(ActivityQuestion::class, 'actID', 'actID')
-                    ->with(['question' => function ($query) {
-                        $query->with('testCases', 'itemType'); // ✅ Eager load test cases & item type
+        return $this->hasMany(ActivityItem::class, 'actID', 'actID')
+                    ->with(['item' => function ($query) {
+                        $query->with('testCases', 'itemType');
                     }]);
     }
 }

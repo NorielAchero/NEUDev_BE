@@ -31,15 +31,15 @@ class ProgrammingLanguage extends Model
     }
 
     /**
-     * Get all questions that support this programming language.
+     * Get all items that support this programming language.
      */
-    public function questions()
+    public function items()
     {
         return $this->belongsToMany(
-            Question::class, 
-            'question_programming_languages', 
+            Item::class, 
+            'item_programming_languages', 
             'progLangID', 
-            'questionID'
+            'itemID'
         );
     }
 }
