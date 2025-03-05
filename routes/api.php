@@ -5,9 +5,11 @@ use App\Http\Controllers\Api\ProfileStudentController;
 use App\Http\Controllers\Api\ProfileTeacherController;
 use App\Http\Controllers\Api\ClassroomController;
 use App\Http\Controllers\Api\ActivityController;
-use App\Http\Controllers\Api\QuestionController;
+use App\Http\Controllers\Api\ItemController; // Renamed from QuestionController if applicable
 use App\Http\Controllers\Api\ItemTypeController;
 use App\Http\Controllers\Api\ProgrammingLanguageController;
+use App\Http\Controllers\AssessmentController;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Log;
@@ -46,7 +48,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ]);
     });
 
+    // -------------------------------
     // Student Routes
+    // -------------------------------
     Route::prefix('student')->group(function () {
         Route::controller(ProfileStudentController::class)->group(function () {
             Route::get('/profile/{student}', 'show');
@@ -60,6 +64,8 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         Route::get('/classes', [ClassroomController::class, 'getStudentClasses']);
+
+        // Student Activity endpoints
         Route::controller(ActivityController::class)->group(function () {
             Route::get('/activities', 'showStudentActivities');
         });
@@ -67,7 +73,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/activities/{actID}/leaderboard', [ActivityController::class, 'showActivityLeaderboardByStudent']);
     });
 
+    // -------------------------------
     // Teacher Routes
+    // -------------------------------
     Route::prefix('teacher')->group(function () {
         Route::controller(ProfileTeacherController::class)->group(function () {
             Route::get('/profile/{teacher}', 'show');
@@ -86,6 +94,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/class/{classID}/unenroll/{studentID}', 'unenrollStudent');
         });
 
+        // Teacher Activity endpoints
         Route::controller(ActivityController::class)->group(function () {
             Route::post('/activities', 'store');
             Route::get('/class/{classID}/activities', 'showClassActivities');
@@ -94,15 +103,18 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/activities/{actID}', 'destroy');
         });
 
-        Route::controller(QuestionController::class)->group(function () {
-            Route::get('/questions/itemType/{itemTypeID}', 'getByItemType');
-            Route::post('/questions', 'store');
-            Route::get('/questions/{questionID}', 'show');
-            Route::put('/questions/{questionID}', 'update');
-            Route::delete('/questions/{questionID}', 'destroy');
+        // Item Controller endpoints
+        // Note: endpoints updated from /questions to /items for consistency.
+        Route::controller(ItemController::class)->group(function () {
+            Route::get('/items/itemType/{itemTypeID}', 'getByItemType');
+            Route::post('/items', 'store');
+            Route::get('/items/{itemID}', 'show');
+            Route::put('/items/{itemID}', 'update');
+            Route::delete('/items/{itemID}', 'destroy');
         });
 
         Route::get('/itemTypes', [ItemTypeController::class, 'index']);
+
         Route::controller(ProgrammingLanguageController::class)->group(function () {
             Route::get('/programmingLanguages', 'get');
             Route::post('/programmingLanguages', 'store');
@@ -115,5 +127,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/activities/{actID}/leaderboard', [ActivityController::class, 'showActivityLeaderboardByTeacher']);
         Route::get('/activities/{actID}/settings', [ActivityController::class, 'showActivitySettingsByTeacher']);
         Route::put('/activities/{actID}/settings', [ActivityController::class, 'updateActivitySettingsByTeacher']);
+    });
+
+    // -------------------------------
+    // Assessment Routes
+    // -------------------------------
+    Route::controller(AssessmentController::class)->group(function () {
+        Route::get('/assessments', 'index');
+        Route::post('/assessments', 'store');
+        Route::get('/assessments/{id}', 'show');
+        Route::put('/assessments/{id}', 'update');
+        Route::delete('/assessments/{id}', 'destroy');
     });
 });
