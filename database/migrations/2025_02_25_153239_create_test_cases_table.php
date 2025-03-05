@@ -8,14 +8,21 @@ return new class extends Migration {
     public function up(): void {
         Schema::create('test_cases', function (Blueprint $table) {
             $table->id('testCaseID');
-            $table->unsignedBigInteger('questionID'); // Link to the question
-            $table->text('inputData')->nullable();      // Input provided to the student's code
-            $table->text('expectedOutput');             // Expected output for correctness check
+            $table->unsignedBigInteger('itemID');   // was "questionID"
             
-            // NEW: Points for this test case (teacher-specified)
+            $table->text('inputData')->nullable();
+            $table->text('expectedOutput');
+            
             $table->integer('testCasePoints');
             
-            $table->foreign('questionID')->references('questionID')->on('questions')->onDelete('cascade');
+            // NEW: Hide from students if true
+            $table->boolean('isHidden')->default(false);
+
+            // Foreign key constraint
+            $table->foreign('itemID')
+                  ->references('itemID')
+                  ->on('items')
+                  ->onDelete('cascade');
         });
     }
 
